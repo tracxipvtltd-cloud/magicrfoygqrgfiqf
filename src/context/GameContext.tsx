@@ -16,7 +16,9 @@ import {
   createSudokuSumPuzzle, 
   validateBoardSums,
   getMagicSumForSize,
-  getMaxNumberForSize
+  getMaxNumberForSize,
+  generateCampaignLevels,
+  getLevelConfig
 } from '../services/magicMatrixEngine';
 import { sound } from '../services/soundEffects';
 import { 
@@ -96,10 +98,11 @@ interface GameContextType {
   quitGame: () => void;
   lastResult: GameResult | null;
 
-  // Nonogram Level Progression
-  levelsProgress: Record<MatrixSize, NonogramLevel[]>;
+  // Nonogram Level Progression: Start from zero, board sizes assigned by level
+  levelsProgress: NonogramLevel[];
   currentLevelNumber: number | null;
-  startLevel: (size: MatrixSize, levelNum: number) => void;
+  startLevel: (levelNumOrSize: MatrixSize | number, levelNumOpt?: number) => void;
+  resetAllProgress: () => void;
   isDailyChallenge: boolean;
   startDailyChallenge: (day?: number) => void;
   completedDailyDates: string[];
@@ -127,41 +130,21 @@ interface GameContextType {
   setAutoCheckErrors: (val: boolean) => void;
 }
 
+// Start from ZERO: level 1, 0 XP, 0 games played, 0 best score
 const DEFAULT_PROFILE: UserProfile = {
   userId: 'local_guest',
   displayName: 'Numtrix Hunter',
-  level: 12,
-  xp: 3240,
-  gamesPlayed: 142,
-  bestScore: 4850,
-  bestStreak: 24,
-  totalCorrect: 1280,
-  totalWrong: 52,
-  avgReactionTime: 1.42,
+  level: 1,
+  xp: 0,
+  gamesPlayed: 0,
+  bestScore: 0,
+  bestStreak: 0,
+  totalCorrect: 0,
+  totalWrong: 0,
+  avgReactionTime: 0,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
-
-// Initial 12 levels for each matrix size in true Nonogram style
-function generateInitialLevels(size: MatrixSize): NonogramLevel[] {
-  const targetSum = getMagicSumForSize(size);
-  const diffs: DifficultyLevel[] = ['beginner', 'easy', 'medium', 'hard'];
-  return Array.from({ length: 12 }, (_, i) => {
-    const levelNumber = i + 1;
-    const diffIndex = Math.min(3, Math.floor(i / 3));
-    return {
-      levelNumber,
-      size,
-      targetSum,
-      difficulty: diffs[diffIndex],
-      title: `Stage ${levelNumber}`,
-      stars: levelNumber <= 2 ? 3 : levelNumber === 3 ? 2 : 0,
-      isUnlocked: levelNumber <= 4,
-      isCompleted: levelNumber <= 3,
-      bestTime: levelNumber <= 3 ? 45 + levelNumber * 12 : undefined,
-    };
-  });
-}
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
@@ -170,46 +153,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentScreen, setCurrentScreen] = useState<'home' | 'difficulty' | 'game' | 'result' | 'leaderboard' | 'daily'>('home');
   const [activeTab, setActiveTab] = useState<'home' | 'daily' | 'play' | 'stats' | 'settings'>('home');
 
-  // Math rule: 5x5 has values 1..25 and target sum 65; 4x4 has values 1..16 and target sum 34; etc.
-  const [selectedSize, setSelectedSize] = useState<MatrixSize>(5);
-  const [targetSum, setTargetSum] = useState<number>(65);
+  // Starting at Level 1: 3x3 starter board (values 1..9, target sum 15, beginner)
+  const [selectedSize, setSelectedSize] = useState<MatrixSize>(3);
+  const [targetSum, setTargetSum] = useState<number>(15);
   const [selectedMode, setSelectedMode] = useState<GameMode>('classic');
-  const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>('beginner');
 
-  // Level Progression & Daily Challenge
+  // Level Progression: Start from zero, board sizes assigned by level
   const [currentLevelNumber, setCurrentLevelNumber] = useState<number | null>(1);
   const [isDailyChallenge, setIsDailyChallenge] = useState(false);
 
-  const [levelsProgress, setLevelsProgress] = useState<Record<MatrixSize, NonogramLevel[]>>(() => {
-    const saved = localStorage.getItem('numtrix_levels_progress') || localStorage.getItem('sumoku_levels_progress');
+  const [levelsProgress, setLevelsProgress] = useState<NonogramLevel[]>(() => {
+    const saved = localStorage.getItem('numtrix_campaign_levels');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Ensure targets are updated to correct magic sums
-        if (parsed[5] && parsed[5][0]?.targetSum === 25) {
-          // migrate from old targetSum 25 to 65
-          parsed[5] = parsed[5].map((lvl: NonogramLevel) => ({ ...lvl, targetSum: 65 }));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // If this was an old mock dataset where level 2 or 3 was pre-completed, reset to 0
+          const hasOldMockData = parsed.some((l: NonogramLevel) => l.levelNumber > 1 && l.isCompleted && !localStorage.getItem('numtrix_has_played'));
+          if (!hasOldMockData) {
+            return parsed;
+          }
         }
-        if (parsed[4] && parsed[4][0]?.targetSum === 16) {
-          parsed[4] = parsed[4].map((lvl: NonogramLevel) => ({ ...lvl, targetSum: 34 }));
-        }
-        if (parsed[6] && parsed[6][0]?.targetSum === 36) {
-          parsed[6] = parsed[6].map((lvl: NonogramLevel) => ({ ...lvl, targetSum: 111 }));
-        }
-        if (parsed[3] && parsed[3][0]?.targetSum === 9) {
-          parsed[3] = parsed[3].map((lvl: NonogramLevel) => ({ ...lvl, targetSum: 15 }));
-        }
-        return parsed;
       } catch {
         /* fallback */
       }
     }
-    return {
-      5: generateInitialLevels(5),
-      4: generateInitialLevels(4),
-      6: generateInitialLevels(6),
-      3: generateInitialLevels(3),
-    };
+    return generateCampaignLevels(48);
   });
 
   const [completedDailyDates, setCompletedDailyDates] = useState<string[]>(() => {
@@ -281,7 +251,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('numtrix_profile') || localStorage.getItem('magicmatrix_profile');
     if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
+      try {
+        const p = JSON.parse(saved);
+        // Start from zero: if old mock profile values exist, reset to zero
+        if (p.gamesPlayed === 142 || p.xp === 3240) {
+          return DEFAULT_PROFILE;
+        }
+        return p;
+      } catch { /* ignore */ }
     }
     return DEFAULT_PROFILE;
   });
@@ -339,9 +316,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sound.playClick();
   };
 
-  // Puzzle State: Default 5x5 with target sum 65 (numbers 1 to 25)
+  // Puzzle State: Default Level 1 (3x3 with target sum 15, values 1..9, beginner)
   const [puzzle, setPuzzle] = useState<SudokuSumPuzzle>(() =>
-    createSudokuSumPuzzle(5, 65, 'medium', 'classic')
+    createSudokuSumPuzzle(3, 15, 'beginner', 'classic')
   );
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   const [isPencilMode, setIsPencilMode] = useState(false);
@@ -453,9 +430,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Update Nonogram level progression if playing a campaign level
     if (currentLevelNumber) {
+      localStorage.setItem('numtrix_has_played', 'true');
       setLevelsProgress((prev) => {
-        const currentList = prev[puzzle.size] || [];
-        const updatedList = currentList.map((lvl) => {
+        const updatedList = prev.map((lvl) => {
           if (lvl.levelNumber === currentLevelNumber) {
             return {
               ...lvl,
@@ -469,9 +446,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           return lvl;
         });
-        const nextState = { ...prev, [puzzle.size]: updatedList };
-        localStorage.setItem('sumoku_levels_progress', JSON.stringify(nextState));
-        return nextState;
+        localStorage.setItem('numtrix_campaign_levels', JSON.stringify(updatedList));
+        return updatedList;
       });
     }
 
@@ -629,18 +605,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [selectedSize, difficulty, selectedMode, startTimer]
   );
 
-  // Start a specific Nonogram level
+  // Start a specific Nonogram level (board size and difficulty are assigned by level)
   const startLevel = useCallback(
-    (size: MatrixSize, levelNum: number) => {
-      setCurrentLevelNumber(levelNum);
+    (levelNumOrSize: MatrixSize | number, levelNumOpt?: number) => {
+      const targetLevelNum = typeof levelNumOpt === 'number' ? levelNumOpt : (levelNumOrSize as number);
+      setCurrentLevelNumber(targetLevelNum);
       setIsDailyChallenge(false);
-      const target = getMagicSumForSize(size);
-      const diffs: DifficultyLevel[] = ['beginner', 'easy', 'medium', 'hard'];
-      const diff = diffs[Math.min(3, Math.floor((levelNum - 1) / 3))];
-      startNewGame(size, target, diff, 'classic');
+      const level = levelsProgress.find((l) => l.levelNumber === targetLevelNum) || levelsProgress[0];
+      startNewGame(level.size, level.targetSum, level.difficulty, 'classic');
     },
-    [startNewGame]
+    [levelsProgress, startNewGame]
   );
+
+  // Reset all progress back to zero
+  const resetAllProgress = useCallback(() => {
+    const freshLevels = generateCampaignLevels(48);
+    setLevelsProgress(freshLevels);
+    setUserProfile(DEFAULT_PROFILE);
+    localStorage.removeItem('numtrix_campaign_levels');
+    localStorage.removeItem('numtrix_levels_progress');
+    localStorage.removeItem('sumoku_levels_progress');
+    localStorage.removeItem('numtrix_profile');
+    localStorage.removeItem('magicmatrix_profile');
+    localStorage.removeItem('numtrix_daily_completed');
+    localStorage.removeItem('sumoku_daily_completed');
+    localStorage.removeItem('numtrix_has_played');
+    startNewGame(freshLevels[0].size, freshLevels[0].targetSum, freshLevels[0].difficulty, 'classic');
+    setCurrentScreen('home');
+  }, [startNewGame]);
 
   // Start Daily Challenge
   const startDailyChallenge = useCallback(
@@ -893,6 +885,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         levelsProgress,
         currentLevelNumber,
         startLevel,
+        resetAllProgress,
         isDailyChallenge,
         startDailyChallenge,
         completedDailyDates,

@@ -1,4 +1,4 @@
-import { MatrixSize, DifficultyLevel, SudokuSumPuzzle, PuzzleCell, GameMode, ValidationResult } from '../types';
+import { MatrixSize, DifficultyLevel, SudokuSumPuzzle, PuzzleCell, GameMode, ValidationResult, NonogramLevel } from '../types';
 
 /**
  * Returns the exact magic sum for an N x N matrix with unique numbers 1 to N^2:
@@ -51,7 +51,7 @@ export function validateBoardSums(grid: (number | null)[][], targetSum: number):
   const duplicateCellKeys = new Set<string>();
 
   // Global matrix value tracker: number -> array of {row, col}
-  // "The numbers in the matrix should not repeat again in the matrix"
+  // Strictly enforces: numbers in the matrix should never repeat
   const matrixValueMap = new Map<number, { row: number; col: number }[]>();
 
   for (let r = 0; r < n; r++) {
@@ -78,7 +78,7 @@ export function validateBoardSums(grid: (number | null)[][], targetSum: number):
   }
 
   // Flag any duplicates across the entire matrix
-  for (const [val, cells] of matrixValueMap.entries()) {
+  for (const [, cells] of matrixValueMap.entries()) {
     if (cells.length > 1) {
       for (const cell of cells) {
         duplicateCellKeys.add(`${cell.row},${cell.col}`);
@@ -280,17 +280,21 @@ export function generate6x6Solution(): number[][] {
 
 /**
  * Master Numtrix Puzzle Generator
- * Strictly enforces:
- * - 3x3 matrix: values 1..9, target sum 15, NO REPEATS in matrix!
- * - 4x4 matrix: values 1..16, target sum 34, NO REPEATS in matrix!
- * - 5x5 matrix: values 1..25, target sum 65, NO REPEATS in matrix!
- * - 6x6 matrix: values 1..36, target sum 111, NO REPEATS in matrix!
+ * User Requirement:
+ * "we are not randomly starting at something ley them build from the starting itself so start with zero and the size of the board should be given randomly by level"
+ *
+ * When startWithZero = true (default):
+ * - Exactly ZERO pre-filled cells (the board starts completely blank)
+ * - The player builds the matrix entirely from scratch by placing 1..N^2
+ * - Every line must equal targetSum
+ * - Numbers never repeat in the matrix
  */
 export function createSudokuSumPuzzle(
   size: MatrixSize = 5,
   targetSum?: number,
   difficulty: DifficultyLevel = 'medium',
-  mode: GameMode = 'classic'
+  mode: GameMode = 'classic',
+  startWithZero = true
 ): SudokuSumPuzzle {
   const calculatedSum = getMagicSumForSize(size);
   const finalTarget = targetSum && targetSum === calculatedSum ? targetSum : calculatedSum;
@@ -315,59 +319,19 @@ export function createSudokuSumPuzzle(
       break;
   }
 
-  // Number of pre-filled clues (givens) based on difficulty
-  // Ensuring the game is challenging yet accessible
-  let numGivens: number;
-  const totalCells = size * size;
-
-  switch (size) {
-    case 3:
-      numGivens = difficulty === 'beginner' ? 5 : difficulty === 'easy' ? 4 : difficulty === 'medium' ? 3 : 2;
-      break;
-    case 4:
-      numGivens = difficulty === 'beginner' ? 9 : difficulty === 'easy' ? 8 : difficulty === 'medium' ? 7 : 5;
-      break;
-    case 5:
-      numGivens = difficulty === 'beginner' ? 14 : difficulty === 'easy' ? 12 : difficulty === 'medium' ? 10 : 8;
-      break;
-    case 6:
-      numGivens = difficulty === 'beginner' ? 20 : difficulty === 'easy' ? 17 : difficulty === 'medium' ? 14 : 11;
-      break;
-    default:
-      numGivens = 10;
-      break;
-  }
-
-  // Pick random symmetric indices for givens
-  const indices: number[] = Array.from({ length: totalCells }, (_, i) => i);
-  indices.sort(() => Math.random() - 0.5);
-
-  const givenSet = new Set<number>();
-  for (let i = 0; i < indices.length; i++) {
-    if (givenSet.size >= numGivens) break;
-    const idx = indices[i];
-    givenSet.add(idx);
-    const symIdx = totalCells - 1 - idx;
-    if (givenSet.size < numGivens) {
-      givenSet.add(symIdx);
-    }
-  }
-
-  // Build grid
+  // Build grid: when startWithZero is true, ZERO pre-filled givens!
+  // The player builds the entire matrix from scratch!
   const grid: PuzzleCell[][] = [];
   for (let r = 0; r < size; r++) {
     const row: PuzzleCell[] = [];
     for (let c = 0; c < size; c++) {
-      const idx = r * size + c;
       const solVal = solution[r][c];
-      const isGiven = givenSet.has(idx);
-
       row.push({
         row: r,
         col: c,
-        value: isGiven ? solVal : null,
+        value: startWithZero ? null : null,
         solutionValue: solVal,
-        isGiven,
+        isGiven: false,
         notes: [],
         isError: false,
         isDuplicate: false,
@@ -386,4 +350,58 @@ export function createSudokuSumPuzzle(
     solution,
     maxNumber,
   };
+}
+
+/**
+ * Procedural level configuration generator:
+ * "the size of the board should be given randomly by level ok you got my point"
+ *
+ * Each level gets its matrix size (3×3, 4×4, 5×5, 6×6) assigned randomly/variedly per level,
+ * with Level 1 starting at 3x3 to give a clean, approachable start from zero!
+ */
+export function getLevelConfig(levelNumber: number): { size: MatrixSize; difficulty: DifficultyLevel } {
+  // Level 1: 3x3 gentle intro starter so they build from zero easily
+  if (levelNumber === 1) {
+    return { size: 3, difficulty: 'beginner' };
+  }
+
+  // All other levels: size is given randomly across 3x3, 4x4, 5x5, 6x6
+  const availableSizes: MatrixSize[] = [3, 4, 5, 6];
+  // Stable pseudo-random seed per level number to guarantee varied distribution
+  const hash = Math.abs(Math.sin(levelNumber * 12.9898 + 78.233) * 43758.5453);
+  const rand = hash - Math.floor(hash);
+
+  const size = availableSizes[Math.floor(rand * availableSizes.length)];
+
+  const diffs: DifficultyLevel[] = ['easy', 'medium', 'hard'];
+  const difficulty = diffs[Math.floor((rand * 997) % diffs.length)];
+
+  return { size, difficulty };
+}
+
+/**
+ * Builds the campaign levels progression starting with zero:
+ * - All levels have 0 stars
+ * - All levels start uncompleted
+ * - ONLY Stage 1 is unlocked
+ * - Board sizes are assigned randomly by level!
+ */
+export function generateCampaignLevels(totalLevels = 48): NonogramLevel[] {
+  return Array.from({ length: totalLevels }, (_, i) => {
+    const levelNumber = i + 1;
+    const { size, difficulty } = getLevelConfig(levelNumber);
+    const targetSum = getMagicSumForSize(size);
+
+    return {
+      levelNumber,
+      size,
+      targetSum,
+      difficulty,
+      title: `Stage ${levelNumber}`,
+      stars: 0,
+      isUnlocked: levelNumber === 1,
+      isCompleted: false,
+      bestTime: undefined,
+    };
+  });
 }

@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   Play, 
-  Flame, 
-  Target, 
   Sparkles, 
   Trophy, 
   Zap,
@@ -14,38 +12,39 @@ import {
   Star,
   Check,
   Calendar,
-  AlertCircle,
+  RotateCcw,
   ArrowRight
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { AppHeader } from '../components/AppHeader';
 import { GlassCard } from '../components/AppleLiquidGlass';
 import { sound } from '../services/soundEffects';
-import { MatrixSize } from '../types';
 
 export const HomeScreen: React.FC = () => {
   const { 
     userProfile, 
     setCurrentScreen, 
-    startNewGame, 
     startLevel,
     levelsProgress,
     isDarkMode, 
     toggleTheme,
-    startDailyChallenge 
+    resetAllProgress
   } = useGame();
 
-  const [activeSizeTab, setActiveSizeTab] = useState<MatrixSize>(5);
-
-  const levels = levelsProgress[activeSizeTab] || [];
+  // Chapter pagination (12 levels per chapter)
+  const [activeChapter, setActiveChapter] = useState<number>(1);
 
   // Find the first uncompleted unlocked level to continue
-  const nextLevel = levels.find((lvl) => lvl.isUnlocked && !lvl.isCompleted) || levels[0];
+  const nextLevel = levelsProgress.find((lvl) => lvl.isUnlocked && !lvl.isCompleted) || levelsProgress[0];
 
   // Calculate total stars collected across all levels
-  const totalStars = Object.values(levelsProgress).reduce((acc, lvlList) => {
-    return acc + lvlList.reduce((s, l) => s + (l.stars || 0), 0);
-  }, 0);
+  const totalStars = levelsProgress.reduce((acc, lvl) => acc + (lvl.stars || 0), 0);
+  const completedCount = levelsProgress.filter((lvl) => lvl.isCompleted).length;
+
+  // Levels for active chapter (12 levels per page)
+  const pageSize = 12;
+  const startIndex = (activeChapter - 1) * pageSize;
+  const currentChapterLevels = levelsProgress.slice(startIndex, startIndex + pageSize);
 
   const handleLevelClick = (levelNumber: number, isUnlocked: boolean) => {
     if (!isUnlocked) {
@@ -53,21 +52,27 @@ export const HomeScreen: React.FC = () => {
       return;
     }
     sound.playClick();
-    startLevel(activeSizeTab, levelNumber);
+    startLevel(levelNumber);
   };
 
   const handleContinue = () => {
     sound.playClick();
-    startLevel(activeSizeTab, nextLevel.levelNumber);
+    startLevel(nextLevel.levelNumber);
   };
 
-  const getMagicSumForTab = (sz: MatrixSize) => {
-    switch (sz) {
-      case 3: return 15;
-      case 4: return 34;
-      case 5: return 65;
-      case 6: return 111;
-      default: return 65;
+  const getSizeBadgeColor = (size: number, isCurrent: boolean) => {
+    if (isCurrent) return 'bg-white/20 text-white border-white/30';
+    switch (size) {
+      case 3:
+        return 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+      case 4:
+        return 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800';
+      case 5:
+        return 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+      case 6:
+        return 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800';
+      default:
+        return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
@@ -118,116 +123,95 @@ export const HomeScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Nonogram Size Tabs */}
-        <div className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800">
-          <button
-            onClick={() => { sound.playClick(); setActiveSizeTab(5); }}
-            className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer ${
-              activeSizeTab === 5
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <span className="text-[10px] font-bold block leading-none opacity-80">5×5</span>
-            <span className="text-xs font-black block mt-0.5">Sum 65</span>
-            <span className="text-[9px] opacity-75 font-semibold block">1–25</span>
-          </button>
-
-          <button
-            onClick={() => { sound.playClick(); setActiveSizeTab(4); }}
-            className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer ${
-              activeSizeTab === 4
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <span className="text-[10px] font-bold block leading-none opacity-80">4×4</span>
-            <span className="text-xs font-black block mt-0.5">Sum 34</span>
-            <span className="text-[9px] opacity-75 font-semibold block">1–16</span>
-          </button>
-
-          <button
-            onClick={() => { sound.playClick(); setActiveSizeTab(6); }}
-            className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer ${
-              activeSizeTab === 6
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <span className="text-[10px] font-bold block leading-none opacity-80">6×6</span>
-            <span className="text-xs font-black block mt-0.5">Sum 111</span>
-            <span className="text-[9px] opacity-75 font-semibold block">1–36</span>
-          </button>
-
-          <button
-            onClick={() => { sound.playClick(); setActiveSizeTab(3); }}
-            className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer ${
-              activeSizeTab === 3
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <span className="text-[10px] font-bold block leading-none opacity-80">3×3</span>
-            <span className="text-xs font-black block mt-0.5">Sum 15</span>
-            <span className="text-[9px] opacity-75 font-semibold block">1–9</span>
-          </button>
-        </div>
-
-        {/* Nonogram Hero Continue Banner */}
+        {/* Hero Continue Banner: Built from zero */}
         <motion.div
           whileTap={{ scale: 0.98 }}
           onClick={handleContinue}
           className="p-4 rounded-3xl bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/40 cursor-pointer flex items-center justify-between"
         >
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-black tracking-wider uppercase">
-              <span>{activeSizeTab}×{activeSizeTab} NUMTRIX</span>
-              <span>•</span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-[10px] font-black tracking-wider uppercase">
               <span>STAGE {nextLevel.levelNumber}</span>
+              <span>•</span>
+              <span>{nextLevel.size}×{nextLevel.size} MATRIX</span>
+              <span>•</span>
+              <span>{nextLevel.difficulty.toUpperCase()}</span>
             </div>
             <h3 className="text-lg font-black tracking-tight leading-tight">
-              Target Sum {getMagicSumForTab(activeSizeTab)}
+              Target Sum {nextLevel.targetSum} (Values 1–{nextLevel.size * nextLevel.size})
             </h3>
             <p className="text-xs text-blue-100 font-medium">
-              Values 1 to {activeSizeTab * activeSizeTab} • Zero repeats in the matrix!
+              Numbers never repeat in the matrix • Tap to start Stage {nextLevel.levelNumber}
             </p>
           </div>
 
-          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black shadow-sm shrink-0 ml-2">
             <Play className="w-5 h-5 fill-current ml-0.5" />
           </div>
         </motion.div>
 
-        {/* Rule Highlight: "Numbers Don't Repeat" */}
+        {/* Rule Highlight: Dynamic Size by Level & Zero Repeat */}
         <div className="p-3 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900 flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 font-black text-xs">
-            ≠
+          <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 font-black text-xs shadow-xs">
+            1→N²
           </div>
           <div>
             <h4 className="text-xs font-black text-blue-900 dark:text-blue-200">
-              Crucial Rule: Numbers Never Repeat!
+              Procedural Campaign: Build From Zero
             </h4>
             <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-tight">
-              Every value from <span className="font-bold text-blue-600 dark:text-sky-400">1 to {activeSizeTab * activeSizeTab}</span> appears exactly once in the {activeSizeTab}×{activeSizeTab} matrix.
+              Each stage challenges you with a procedurally assigned matrix size (3×3 up to 6×6). All values are distinct!
             </p>
           </div>
         </div>
 
-        {/* Nonogram Stage Cards Map (1..12) */}
+        {/* Chapter Tabs (Stages 1-12, 13-24, 25-36, 37-48) */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-              {activeSizeTab}×{activeSizeTab} Levels
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                Stage Map
+              </span>
+              <span className="px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-sky-300 text-[10px] font-black">
+                {completedCount}/{levelsProgress.length}
+              </span>
+            </div>
             <span className="text-[11px] font-bold text-slate-400">
-              {levels.filter((l) => l.isCompleted).length}/{levels.length} Solved
+              {totalStars} Stars Earned
             </span>
           </div>
 
-          {/* Level Cards Grid */}
-          <div className="grid grid-cols-4 gap-2.5">
-            {levels.map((lvl) => {
+          {/* Chapter Selector Tabs */}
+          <div className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800">
+            {[1, 2, 3, 4].map((ch) => {
+              const start = (ch - 1) * pageSize + 1;
+              const end = ch * pageSize;
+              const chLevels = levelsProgress.slice(start - 1, end);
+              const chCompleted = chLevels.filter((l) => l.isCompleted).length;
+
+              return (
+                <button
+                  key={ch}
+                  onClick={() => { sound.playClick(); setActiveChapter(ch); }}
+                  className={`py-1.5 px-1 rounded-xl text-center transition-all cursor-pointer ${
+                    activeChapter === ch
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="text-[10px] font-bold block leading-none opacity-80">Part {ch}</span>
+                  <span className="text-[11px] font-black block mt-0.5">#{start}–{end}</span>
+                  <span className="text-[8px] opacity-75 font-semibold block">{chCompleted}/12</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Level Cards Grid (4 columns) */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+            {currentChapterLevels.map((lvl) => {
               const isCurrent = lvl.levelNumber === nextLevel.levelNumber;
+              const sizeBadgeStyle = getSizeBadgeColor(lvl.size, isCurrent);
 
               return (
                 <motion.button
@@ -240,24 +224,29 @@ export const HomeScreen: React.FC = () => {
                       : isCurrent
                       ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/30 ring-2 ring-blue-400/50'
                       : lvl.isCompleted
-                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-emerald-300 dark:border-emerald-800'
+                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-emerald-300 dark:border-emerald-800 shadow-xs'
                       : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 hover:border-blue-400'
                   }`}
                 >
                   {/* Top status */}
                   <div className="w-full flex items-center justify-between text-[10px]">
-                    <span className="font-bold opacity-60">#{lvl.levelNumber}</span>
+                    <span className="font-extrabold opacity-75">#{lvl.levelNumber}</span>
                     {lvl.isCompleted ? (
                       <span className="text-emerald-500 font-black">✓</span>
                     ) : !lvl.isUnlocked ? (
-                      <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      <Lock className="w-3 h-3 text-slate-400" />
                     ) : null}
                   </div>
 
-                  {/* Level Number */}
-                  <span className="text-base font-black leading-none my-auto">
-                    {lvl.levelNumber}
-                  </span>
+                  {/* Level Number & Size Badge */}
+                  <div className="flex flex-col items-center gap-1 my-auto">
+                    <span className="text-lg font-black leading-none">
+                      {lvl.levelNumber}
+                    </span>
+                    <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-black border uppercase ${sizeBadgeStyle}`}>
+                      {lvl.size}×{lvl.size} • Σ{lvl.targetSum}
+                    </span>
+                  </div>
 
                   {/* Stars 0..3 */}
                   <div className="flex items-center gap-0.5">
@@ -282,7 +271,7 @@ export const HomeScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Daily Challenge Card in Nonogram Style */}
+        {/* Daily Challenge Card */}
         <GlassCard
           onClick={() => {
             sound.playClick();

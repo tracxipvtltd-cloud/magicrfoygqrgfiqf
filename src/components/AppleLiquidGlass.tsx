@@ -17,15 +17,15 @@ export const GlassCard: React.FC<GlassCardProps> = ({
 }) => {
   let styleClasses = '';
   if (variant === 'light') {
-    styleClasses = 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)]';
+    styleClasses = 'bg-white/90 dark:bg-slate-900/90 text-slate-900 dark:text-slate-100 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.35)]';
   } else if (variant === 'blue') {
-    styleClasses = 'bg-gradient-to-br from-blue-600/90 to-blue-700/95 text-white backdrop-blur-xl border border-blue-400/40 shadow-[0_10px_30px_-5px_rgba(37,99,235,0.4)]';
+    styleClasses = 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white backdrop-blur-xl border border-blue-400/40 shadow-[0_10px_30px_-5px_rgba(37,99,235,0.4)]';
   } else if (variant === 'cyan') {
-    styleClasses = 'bg-gradient-to-br from-cyan-400/90 to-sky-500/95 text-white backdrop-blur-xl border border-cyan-200/50 shadow-[0_10px_25px_-5px_rgba(6,182,212,0.4)]';
+    styleClasses = 'bg-gradient-to-br from-cyan-500 to-sky-600 text-white backdrop-blur-xl border border-cyan-300/50 shadow-[0_10px_25px_-5px_rgba(6,182,212,0.4)]';
   } else if (variant === 'dark') {
-    styleClasses = 'bg-slate-900/85 backdrop-blur-2xl border border-white/10 text-white shadow-2xl';
+    styleClasses = 'bg-slate-900/90 backdrop-blur-2xl border border-white/10 text-white shadow-2xl';
   } else {
-    styleClasses = 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/30 dark:border-white/5';
+    styleClasses = 'bg-white/80 dark:bg-slate-900/60 text-slate-900 dark:text-white backdrop-blur-md border border-slate-200/80 dark:border-white/10 shadow-xs';
   }
 
   return (

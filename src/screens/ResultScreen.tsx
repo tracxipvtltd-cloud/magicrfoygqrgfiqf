@@ -23,6 +23,8 @@ export const ResultScreen: React.FC = () => {
     lastResult, 
     setCurrentScreen, 
     startNewGame, 
+    startLevel,
+    currentLevelNumber
   } = useGame();
 
   const [copiedShare, setCopiedShare] = useState(false);
@@ -224,11 +226,17 @@ export const ResultScreen: React.FC = () => {
             whileTap={{ scale: 0.97 }}
             onClick={() => {
               sound.playClick();
-              startNewGame(matrixSize, targetSum, difficulty, mode);
+              if (currentLevelNumber) {
+                startLevel(currentLevelNumber + 1);
+              } else {
+                startNewGame(matrixSize, targetSum, difficulty, mode);
+              }
             }}
             className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm tracking-wider shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 border border-blue-400/40 cursor-pointer"
           >
-            <span>PLAY NEXT PUZZLE (TARGET {targetSum})</span>
+            <span>
+              {currentLevelNumber ? `ADVANCE TO STAGE ${currentLevelNumber + 1}` : `PLAY NEXT PUZZLE (TARGET ${targetSum})`}
+            </span>
             <ArrowRight className="w-4 h-4 stroke-[3]" />
           </motion.button>
 

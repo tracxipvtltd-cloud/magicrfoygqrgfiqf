@@ -38,6 +38,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setAutoCheckErrors,
     user,
     setIsAuthModalOpen,
+    resetAllProgress,
   } = useGame();
 
   if (!isOpen) return null;
@@ -271,6 +272,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 }}
               >
                 Toggle
+              </GlassButton>
+            </div>
+
+            {/* Reset Progress to Zero */}
+            <div className="p-3 rounded-2xl bg-red-50/50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-900/40 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center">
+                  <RotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-slate-800 dark:text-white">Start From Zero</h5>
+                  <p className="text-[10px] text-slate-400">Reset all stages, stars & stats</p>
+                </div>
+              </div>
+
+              <GlassButton
+                variant="danger"
+                size="sm"
+                onClick={() => {
+                  sound.playClick();
+                  if (window.confirm('Reset all progress back to Stage 1 and start fresh from zero?')) {
+                    resetAllProgress();
+                    onClose();
+                  }
+                }}
+              >
+                Reset
               </GlassButton>
             </div>
           </div>
