@@ -83,22 +83,37 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Connection test on boot
+// Helper to determine if an error is a security rule / permissions denial
+function isPermissionDeniedError(error: unknown): boolean {
+  if (!error) return false;
+  const code = (error as { code?: string })?.code;
+  if (code === 'permission-denied') return true;
+  const msg = error instanceof Error ? error.message : String(error);
+  return msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('insufficient permissions');
+}
+
+// Connection test on boot as required by Firebase skill
 export async function testConnection(): Promise<boolean> {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
     console.log('Firebase connection verified.');
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is currently offline.');
+    if (error instanceof Error && (error.message.includes('the client is offline') || (error as { code?: string })?.code === 'unavailable')) {
+      console.warn('Firebase client is currently in offline mode or connecting.');
+    } else {
+      console.warn('Firebase test connection status:', error);
     }
     return false;
   }
 }
 
-// Automatically test connection when module loads
-testConnection();
+// Schedule connection check after module initialization
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    testConnection().catch((err) => console.warn('Deferred connection test notice:', err));
+  }, 300);
+}
 
 // Authentication Helpers
 export async function loginWithGoogle(): Promise<User> {
@@ -125,7 +140,11 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
     }
     return null;
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, path);
+    if (isPermissionDeniedError(error)) {
+      handleFirestoreError(error, OperationType.GET, path);
+    }
+    console.warn('Could not fetch user profile (offline fallback):', error);
+    return null;
   }
 }
 
@@ -147,7 +166,10 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
       });
     }
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    if (isPermissionDeniedError(error)) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+    console.warn('Could not save user profile (offline queue):', error);
   }
 }
 
@@ -157,7 +179,10 @@ export async function recordMatchScore(record: GameScoreRecord): Promise<void> {
   try {
     await setDoc(doc(db, 'scores', record.scoreId), record);
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
+    if (isPermissionDeniedError(error)) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+    console.warn('Could not record match score (offline queue):', error);
   }
 }
 
@@ -172,6 +197,9 @@ export async function fetchTopScores(limitCount = 15): Promise<GameScoreRecord[]
     });
     return records;
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
     console.warn('Could not fetch online leaderboard:', error);
     return [];
   }
@@ -183,7 +211,10 @@ export async function recordDailyChallengeCompletion(record: DailyChallengeRecor
   try {
     await setDoc(doc(db, 'dailyRecords', record.recordId), record);
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
+    if (isPermissionDeniedError(error)) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+    console.warn('Could not record daily completion (offline queue):', error);
   }
 }
 
@@ -203,6 +234,9 @@ export async function fetchDailyLeaderboard(dateStr: string): Promise<DailyChall
     });
     return records;
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
     console.warn('Could not fetch daily records:', error);
     return [];
   }

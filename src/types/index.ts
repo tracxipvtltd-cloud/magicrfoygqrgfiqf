@@ -1,29 +1,59 @@
 export type GameMode = 'classic' | 'timed' | 'practice' | 'challenge';
 
-export type DifficultyLevel = 'beginner' | 'easy' | 'medium' | 'hard' | 'expert';
+export type DifficultyLevel = 'beginner' | 'easy' | 'medium' | 'hard';
 
-export type MatrixSize = 3 | 4 | 5 | 6 | 7 | 8;
+export type MatrixSize = 3 | 4 | 5 | 6;
 
-export interface MatrixConfig {
-  name: string;
-  size: MatrixSize;
-  orderLabel: string;
-  magicConstant: number;
-  lives: number;
-  multiplier: number;
-  tag?: string;
-  isLocked?: boolean;
+export interface PuzzleCell {
+  row: number;
+  col: number;
+  value: number | null; // null if empty
+  solutionValue: number;
+  isGiven: boolean; // pre-filled clue like Sudoku
+  notes: number[]; // pencil notes
+  isError?: boolean;
+  isDuplicate?: boolean; // duplicate number in row or column
 }
 
-export interface MagicMatrixData {
+export interface NonogramLevel {
+  levelNumber: number;
   size: MatrixSize;
-  cells: number[][];
-  magicConstant: number;
-  flatNumbers: number[];
+  targetSum: number;
+  difficulty: DifficultyLevel;
+  title: string;
+  stars: number; // 0, 1, 2, 3
+  isUnlocked: boolean;
+  isCompleted: boolean;
+  bestTime?: number;
+}
+
+export interface ValidationResult {
   rowSums: number[];
   colSums: number[];
-  diagSums: [number, number];
-  isValid: boolean;
+  diag1Sum: number;
+  diag2Sum: number;
+  isRowComplete: boolean[];
+  isColComplete: boolean[];
+  isDiag1Complete: boolean;
+  isDiag2Complete: boolean;
+  rowHasDuplicates: boolean[];
+  colHasDuplicates: boolean[];
+  diag1HasDuplicates: boolean;
+  diag2HasDuplicates: boolean;
+  duplicateCells: { row: number; col: number }[];
+  allLinesSatisfied: boolean;
+  hasErrors: boolean;
+}
+
+export interface SudokuSumPuzzle {
+  id: string;
+  size: MatrixSize;
+  targetSum: number; // e.g. 25
+  mode: GameMode;
+  difficulty: DifficultyLevel;
+  grid: PuzzleCell[][];
+  solution: number[][];
+  maxNumber: number; // e.g. 9 for digits 1..9
 }
 
 export interface UserProfile {
@@ -50,6 +80,7 @@ export interface GameScoreRecord {
   photoURL?: string;
   mode: GameMode;
   matrixSize: MatrixSize;
+  targetSum: number;
   score: number;
   accuracy: number;
   timeSeconds: number;
@@ -78,7 +109,8 @@ export interface GameResult {
   xpEarned: number;
   isNewBest: boolean;
   matrixSize: MatrixSize;
-  magicConstant: number;
+  targetSum: number;
   mode: GameMode;
-  solvedMatrix: MagicMatrixData;
+  difficulty: DifficultyLevel;
+  solvedGrid: number[][];
 }

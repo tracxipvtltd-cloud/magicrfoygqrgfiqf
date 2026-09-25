@@ -6,6 +6,7 @@ import { DifficultyScreen } from './screens/DifficultyScreen';
 import { GameScreen } from './screens/GameScreen';
 import { ResultScreen } from './screens/ResultScreen';
 import { LeaderboardScreen } from './screens/LeaderboardScreen';
+import { DailyScreen } from './screens/DailyScreen';
 import { BottomNavBar } from './components/BottomNavBar';
 import { GoogleAuthModal } from './components/GoogleAuthModal';
 import { SettingsModal } from './components/SettingsModal';
@@ -17,6 +18,7 @@ const AppContent: React.FC = () => {
     <MobileDeviceFrame>
       <div className="flex-1 flex flex-col w-full relative">
         {currentScreen === 'home' && <HomeScreen />}
+        {currentScreen === 'daily' && <DailyScreen />}
         {currentScreen === 'difficulty' && <DifficultyScreen />}
         {currentScreen === 'game' && <GameScreen />}
         {currentScreen === 'result' && <ResultScreen />}

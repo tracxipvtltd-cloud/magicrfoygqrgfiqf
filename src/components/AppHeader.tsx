@@ -43,26 +43,26 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         )}
 
         <div className="flex items-center gap-2.5">
-          {/* MagicMatrix App Icon (Squircle with 3x3 grid & center 17) */}
-          <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 p-1.5 shadow-md shadow-blue-500/30 flex items-center justify-center overflow-hidden border border-blue-300/40">
-            <div className="w-full h-full rounded-lg bg-blue-800/60 p-0.5 grid grid-cols-3 gap-0.5 items-center justify-items-center">
-              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/80" />
-              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/80" />
-              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/80" />
-              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/80" />
-              <div className="w-2 h-2 rounded-xs bg-cyan-400 border border-white flex items-center justify-center font-extrabold text-[5px] text-black">
-                17
+          {/* Numtrix App Icon (Squircle with sleek N matrix badge) */}
+          <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-1.5 shadow-md shadow-blue-500/30 flex items-center justify-center overflow-hidden border border-blue-300/40">
+            <div className="w-full h-full rounded-lg bg-blue-900/60 p-0.5 grid grid-cols-3 gap-0.5 items-center justify-items-center">
+              <div className="w-1.5 h-1.5 rounded-xs bg-cyan-400 font-black text-[5px] flex items-center justify-center text-slate-950">1</div>
+              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/60" />
+              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/60" />
+              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/60" />
+              <div className="w-2 h-2 rounded-xs bg-white text-blue-900 flex items-center justify-center font-black text-[6px]">
+                N
               </div>
-              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/80" />
-              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/80" />
-              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/80" />
-              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/80" />
+              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/60" />
+              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/60" />
+              <div className="w-1.5 h-1.5 rounded-xs bg-blue-300/60" />
+              <div className="w-1.5 h-1.5 rounded-xs bg-amber-400 font-black text-[5px] flex items-center justify-center text-slate-950">25</div>
             </div>
           </div>
 
           <div className="flex flex-col">
             <h1 className="text-base font-extrabold tracking-tight text-blue-900 dark:text-blue-200 leading-none">
-              MagicMatrix
+              Numtrix
             </h1>
             <span className="text-[10px] font-black tracking-widest text-slate-400 dark:text-slate-400 uppercase mt-0.5">
               {subtitle}

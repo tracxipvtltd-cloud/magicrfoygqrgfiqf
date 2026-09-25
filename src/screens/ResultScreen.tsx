@@ -8,7 +8,6 @@ import {
   Clock, 
   Flame, 
   Zap, 
-  Lightbulb, 
   RotateCcw, 
   Share2, 
   Home, 
@@ -24,9 +23,6 @@ export const ResultScreen: React.FC = () => {
     lastResult, 
     setCurrentScreen, 
     startNewGame, 
-    proceedToNextDifficulty, 
-    selectedSize,
-    selectedMode 
   } = useGame();
 
   const [copiedShare, setCopiedShare] = useState(false);
@@ -34,7 +30,7 @@ export const ResultScreen: React.FC = () => {
   if (!lastResult) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-sm font-bold text-slate-500">No round result found.</p>
+        <p className="text-sm font-bold text-slate-500">No puzzle summary available.</p>
         <GlassButton variant="primary" size="md" onClick={() => setCurrentScreen('home')} className="mt-4">
           Return Home
         </GlassButton>
@@ -52,16 +48,15 @@ export const ResultScreen: React.FC = () => {
     speedBonus,
     isNewBest,
     matrixSize,
-    magicConstant,
-    solvedMatrix,
+    targetSum,
+    mode,
+    difficulty,
+    solvedGrid,
   } = lastResult;
-
-  const nextSize = Math.min(8, matrixSize + 1);
-  const nextConstant = (nextSize * (nextSize * nextSize + 1)) / 2;
 
   const handleShare = () => {
     sound.playClick();
-    const text = `🎯 I just scored ${score.toLocaleString()} in MagicMatrix (${matrixSize}x${matrixSize} M=${magicConstant}) with ${accuracy}% accuracy! Can you beat my time?`;
+    const text = `🎯 I just solved the ${matrixSize}×${matrixSize} Sum ${targetSum} matrix puzzle with ${score.toLocaleString()} points in ${timeSeconds}s! Can you match my score?`;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
       setCopiedShare(true);
@@ -69,11 +64,9 @@ export const ResultScreen: React.FC = () => {
     }
   };
 
-  const avgSpeedPerCell = correctAnswers > 0 ? (timeSeconds / correctAnswers).toFixed(2) : '1.50';
-
   return (
     <div className="flex-1 flex flex-col w-full pb-8">
-      <AppHeader subtitle="ROUND SUMMARY" showBack onBack={() => setCurrentScreen('home')} />
+      <AppHeader subtitle="ROUND COMPLETE" showBack onBack={() => setCurrentScreen('home')} />
 
       <div className="px-5 pt-1 space-y-4">
         {/* Celebration Trophy Badge */}
@@ -93,10 +86,10 @@ export const ResultScreen: React.FC = () => {
           </div>
 
           <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Round Complete!
+            Target {targetSum} Complete!
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-0.5">
-            {matrixSize}×{matrixSize} {selectedMode.toUpperCase()} • Magic Constant M = {magicConstant}
+            {matrixSize}×{matrixSize} {difficulty.toUpperCase()} • All Lines Equal {targetSum}
           </p>
         </div>
 
@@ -121,9 +114,8 @@ export const ResultScreen: React.FC = () => {
           </span>
         </div>
 
-        {/* 4 Metrics Grid */}
+        {/* 4 Performance Metrics */}
         <div className="grid grid-cols-2 gap-2.5">
-          {/* Accuracy */}
           <GlassCard className="p-3.5 flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0">
               <Target className="w-4 h-4 stroke-[2.5]" />
@@ -134,12 +126,11 @@ export const ResultScreen: React.FC = () => {
                 {accuracy.toFixed(1)}%
               </div>
               <span className="text-[10px] font-medium text-slate-400">
-                {correctAnswers} / {correctAnswers + wrongAnswers} Valid
+                {correctAnswers} Correct Placements
               </span>
             </div>
           </GlassCard>
 
-          {/* Time */}
           <GlassCard className="p-3.5 flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
               <Clock className="w-4 h-4 stroke-[2.5]" />
@@ -149,27 +140,23 @@ export const ResultScreen: React.FC = () => {
               <div className="text-base font-black text-slate-800 dark:text-white leading-tight">
                 {timeSeconds}s
               </div>
-              <span className="text-[10px] font-medium text-slate-400">
-                Avg {avgSpeedPerCell}s / cell
-              </span>
+              <span className="text-[10px] font-medium text-slate-400">Speed Solve</span>
             </div>
           </GlassCard>
 
-          {/* Max Streak */}
           <GlassCard className="p-3.5 flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <Flame className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase">Max Streak</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase">Best Streak</div>
               <div className="text-base font-black text-slate-800 dark:text-white leading-tight">
                 {bestStreak}×
               </div>
-              <span className="text-[10px] font-medium text-slate-400">Peak Multiplier</span>
+              <span className="text-[10px] font-medium text-slate-400">Combo Bonus</span>
             </div>
           </GlassCard>
 
-          {/* Speed Bonus */}
           <GlassCard className="p-3.5 flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <Zap className="w-4 h-4 stroke-[2.5]" />
@@ -179,46 +166,43 @@ export const ResultScreen: React.FC = () => {
               <div className="text-base font-black text-emerald-600 dark:text-emerald-400 leading-tight">
                 +{speedBonus} pts
               </div>
-              <span className="text-[10px] font-medium text-slate-400">Lightning Speed</span>
+              <span className="text-[10px] font-medium text-slate-400">Bonus XP</span>
             </div>
           </GlassCard>
         </div>
 
-        {/* Harmonic Matrix Proof Grid */}
+        {/* Solved Grid Parity Proof */}
         <GlassCard className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 dark:text-white">
-              <span className="text-blue-600 font-bold">⊞</span>
-              <span>Harmonic Matrix Proof</span>
+              <span>⊞ Solved Matrix Proof</span>
             </div>
             <div className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" />
-              <span>PARITY BALANCED Σ = {magicConstant}</span>
+              <span>ALL LINES = {targetSum}</span>
             </div>
           </div>
 
-          {/* Proof Grid Representation */}
           <div
-            className="grid gap-1.5 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 aspect-square max-w-[280px] mx-auto w-full items-center justify-center"
+            className="grid gap-1.5 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 max-w-[260px] mx-auto w-full items-center justify-center"
             style={{
               gridTemplateColumns: `repeat(${matrixSize}, minmax(0, 1fr))`,
             }}
           >
-            {solvedMatrix.cells.map((row, r) =>
+            {solvedGrid.map((row, r) =>
               row.map((val, c) => {
                 const isDiag = r === c || r + c === matrixSize - 1;
-                const paddedVal = String(val).padStart(2, '0');
 
                 return (
                   <div
                     key={`${r}-${c}`}
-                    className={`aspect-square rounded-xl flex items-center justify-center font-bold text-xs ${
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-black text-xs ${
                       isDiag
-                        ? 'bg-blue-600 text-white font-black shadow-xs'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700'
                     }`}
                   >
-                    {paddedVal}
+                    {val}
                   </div>
                 );
               })
@@ -226,60 +210,40 @@ export const ResultScreen: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-around text-[10px] font-black text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-white/5">
-            <span>Rows Σ = {magicConstant}</span>
+            <span>Rows: Σ = {targetSum}</span>
             <span>•</span>
-            <span>Cols Σ = {magicConstant}</span>
+            <span>Cols: Σ = {targetSum}</span>
             <span>•</span>
-            <span>Diagonals Σ = {magicConstant}</span>
+            <span>Diagonals: Σ = {targetSum}</span>
           </div>
         </GlassCard>
 
-        {/* Harmonic Sync Insight */}
-        <GlassCard className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 border-blue-200/80 dark:border-blue-900/60 flex items-start gap-3">
-          <div className="w-7 h-7 rounded-xl bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
-            <Lightbulb className="w-4 h-4" />
-          </div>
-          <div>
-            <h5 className="text-xs font-black text-blue-950 dark:text-blue-200">
-              Harmonic Sync Insight
-            </h5>
-            <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed mt-0.5">
-              Outstanding visual scan speed! You solved cells{' '}
-              <span className="font-black text-blue-600 dark:text-sky-300">18% faster</span> than
-              your average. Ready for {nextSize}×{nextSize} order?
-            </p>
-          </div>
-        </GlassCard>
-
-        {/* Primary CTA: Next Challenge */}
+        {/* Primary CTA: Play Next Puzzle */}
         <div className="space-y-2 pt-1">
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => {
               sound.playClick();
-              proceedToNextDifficulty();
+              startNewGame(matrixSize, targetSum, difficulty, mode);
             }}
             className="w-full py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm tracking-wider shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 border border-blue-400/40 cursor-pointer"
           >
-            <span>
-              NEXT CHALLENGE: {nextSize}×{nextSize} (M={nextConstant})
-            </span>
+            <span>PLAY NEXT PUZZLE (TARGET {targetSum})</span>
             <ArrowRight className="w-4 h-4 stroke-[3]" />
           </motion.button>
 
-          {/* Secondary Actions: Replay & Share */}
           <div className="flex gap-2">
             <GlassButton
               variant="glass"
               size="md"
               onClick={() => {
                 sound.playClick();
-                startNewGame(selectedMode, matrixSize);
+                startNewGame(matrixSize, targetSum, difficulty, mode);
               }}
               className="flex-1"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Replay {matrixSize}×{matrixSize}</span>
+              <span>Replay</span>
             </GlassButton>
 
             <GlassButton
@@ -289,11 +253,10 @@ export const ResultScreen: React.FC = () => {
               className="flex-1"
             >
               <Share2 className="w-4 h-4" />
-              <span>{copiedShare ? 'Copied Link!' : 'Share Result'}</span>
+              <span>{copiedShare ? 'Copied Link!' : 'Share'}</span>
             </GlassButton>
           </div>
 
-          {/* Back to Home Link */}
           <button
             onClick={() => {
               sound.playClick();

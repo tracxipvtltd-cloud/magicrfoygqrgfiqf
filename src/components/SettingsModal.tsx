@@ -34,6 +34,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setIsDarkMode,
     deviceFrame,
     setDeviceFrame,
+    autoCheckErrors,
+    setAutoCheckErrors,
     user,
     setIsAuthModalOpen,
   } = useGame();
@@ -175,6 +177,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 />
               </button>
             </div>
+
+            {/* Error Highlight */}
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-red-500 shadow-xs">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-slate-800 dark:text-white">Highlight Conflicts</h5>
+                  <p className="text-[10px] text-slate-400">Warn if sum exceeds target</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setAutoCheckErrors(!autoCheckErrors);
+                  sound.playClick();
+                }}
+                className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
+                  autoCheckErrors ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                    autoCheckErrors ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
 
           {/* Theme & Layout */}
@@ -263,7 +294,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           <div className="mt-5 text-center">
             <span className="text-[11px] text-slate-400 font-medium">
-              MagicMatrix v1.0.0 • React Native Architecture
+              Numtrix v1.0.0 • Liquid Glass Architecture
             </span>
           </div>
         </motion.div>
