@@ -1,0 +1,188 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public profile and progress metrics for a MagicMatrix player",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique Firebase Authentication UID of the player"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Screen name of the player"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Email address of the player"
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Avatar URL for the player"
+        },
+        "level": {
+          "type": "number",
+          "description": "Player level based on total XP"
+        },
+        "xp": {
+          "type": "number",
+          "description": "Current player XP points"
+        },
+        "gamesPlayed": {
+          "type": "number",
+          "description": "Total games completed by player"
+        },
+        "bestScore": {
+          "type": "number",
+          "description": "Highest score achieved across any game mode"
+        },
+        "bestStreak": {
+          "type": "number",
+          "description": "Maximum consecutive correct cell streak"
+        },
+        "totalCorrect": {
+          "type": "number",
+          "description": "Cumulative correct number discoveries"
+        },
+        "totalWrong": {
+          "type": "number",
+          "description": "Cumulative incorrect clicks"
+        },
+        "avgReactionTime": {
+          "type": "number",
+          "description": "Average reaction time in seconds per target"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when account profile was established"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of most recent profile update"
+        }
+      },
+      "required": ["userId", "displayName"]
+    },
+    "GameScore": {
+      "title": "GameScore",
+      "description": "Completed match summary and leaderboard entry",
+      "type": "object",
+      "properties": {
+        "scoreId": {
+          "type": "string",
+          "description": "Unique identifier of the game record"
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the player who played the match"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Name of the player at time of completion"
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Avatar URL of player"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["classic", "timed", "practice", "challenge"],
+          "description": "Game mode played"
+        },
+        "matrixSize": {
+          "type": "number",
+          "description": "Matrix dimension order (3, 4, 5, 6, 7, 8)"
+        },
+        "score": {
+          "type": "number",
+          "description": "Final score earned in match"
+        },
+        "accuracy": {
+          "type": "number",
+          "description": "Percentage accuracy between 0 and 100"
+        },
+        "timeSeconds": {
+          "type": "number",
+          "description": "Elapsed round duration in seconds"
+        },
+        "maxStreak": {
+          "type": "number",
+          "description": "Max combo streak achieved during round"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of game completion"
+        }
+      },
+      "required": ["scoreId", "userId", "score", "mode", "matrixSize"]
+    },
+    "DailyRecord": {
+      "title": "DailyRecord",
+      "description": "Daily challenge completion entry",
+      "type": "object",
+      "properties": {
+        "recordId": {
+          "type": "string",
+          "description": "Combination of date and user ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Player UID"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Player display name"
+        },
+        "challengeDate": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "Date formatted as YYYY-MM-DD"
+        },
+        "score": {
+          "type": "number",
+          "description": "Score achieved in daily challenge"
+        },
+        "timeSeconds": {
+          "type": "number",
+          "description": "Elapsed duration in seconds"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when daily challenge was submitted"
+        }
+      },
+      "required": ["recordId", "userId", "challengeDate", "score"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Collection of individual user profile and career progress documents"
+    },
+    "/scores/{scoreId}": {
+      "schema": {
+        "$ref": "#/entities/GameScore"
+      },
+      "description": "Global match history and leaderboard rankings"
+    },
+    "/dailyRecords/{recordId}": {
+      "schema": {
+        "$ref": "#/entities/DailyRecord"
+      },
+      "description": "Daily challenge completion records for daily leaderboards"
+    }
+  }
+}
