@@ -20,23 +20,23 @@ export const BottomNavBar: React.FC = () => {
     } else if (tab === 'stats') {
       setCurrentScreen('leaderboard');
     } else if (tab === 'settings') {
-      // Keeps current screen and opens modal
+      // settings handled via modal or tab
     }
   };
 
   return (
-    <nav className="w-full px-4 py-2 bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border-t border-white/60 dark:border-white/10 flex items-center justify-around z-20 select-none shadow-[0_-5px_25px_rgba(0,0,0,0.03)]">
-      {/* Levels / Home (Nonogram Stage Map) */}
+    <nav className="w-full px-4 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t border-emerald-100 dark:border-white/10 flex items-center justify-around z-20 select-none shadow-[0_-5px_25px_rgba(0,0,0,0.03)]">
+      {/* Levels / Home (Stage Map) */}
       <button
         onClick={() => handleTabClick('home')}
         className={`flex flex-col items-center gap-0.5 transition-all duration-150 cursor-pointer ${
           activeTab === 'home' && currentScreen === 'home'
-            ? 'text-blue-600 dark:text-sky-400 scale-105 font-bold'
-            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+            ? 'text-emerald-700 dark:text-emerald-400 scale-105 font-black'
+            : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 font-bold'
         }`}
       >
         <LayoutGrid className="w-5 h-5 stroke-[2.2]" />
-        <span className="text-[10px] font-bold tracking-tight">Levels</span>
+        <span className="text-[10px] tracking-tight">Levels</span>
       </button>
 
       {/* Daily Challenge Calendar */}
@@ -44,12 +44,12 @@ export const BottomNavBar: React.FC = () => {
         onClick={() => handleTabClick('daily')}
         className={`flex flex-col items-center gap-0.5 transition-all duration-150 cursor-pointer ${
           activeTab === 'daily' || currentScreen === 'daily'
-            ? 'text-blue-600 dark:text-sky-400 scale-105 font-bold'
-            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+            ? 'text-emerald-700 dark:text-emerald-400 scale-105 font-black'
+            : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 font-bold'
         }`}
       >
         <Calendar className="w-5 h-5 stroke-[2.2]" />
-        <span className="text-[10px] font-bold tracking-tight">Daily</span>
+        <span className="text-[10px] tracking-tight">Daily</span>
       </button>
 
       {/* Custom Setup */}
@@ -57,12 +57,12 @@ export const BottomNavBar: React.FC = () => {
         onClick={() => handleTabClick('play')}
         className={`flex flex-col items-center gap-0.5 transition-all duration-150 cursor-pointer ${
           activeTab === 'play' || currentScreen === 'difficulty'
-            ? 'text-blue-600 dark:text-sky-400 scale-105 font-bold'
-            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+            ? 'text-emerald-700 dark:text-emerald-400 scale-105 font-black'
+            : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 font-bold'
         }`}
       >
         <Sliders className="w-5 h-5 stroke-[2.2]" />
-        <span className="text-[10px] font-bold tracking-tight">Custom</span>
+        <span className="text-[10px] tracking-tight">Custom</span>
       </button>
 
       {/* Stats */}
@@ -70,12 +70,12 @@ export const BottomNavBar: React.FC = () => {
         onClick={() => handleTabClick('stats')}
         className={`flex flex-col items-center gap-0.5 transition-all duration-150 cursor-pointer ${
           activeTab === 'stats' || currentScreen === 'leaderboard'
-            ? 'text-blue-600 dark:text-sky-400 scale-105 font-bold'
-            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+            ? 'text-emerald-700 dark:text-emerald-400 scale-105 font-black'
+            : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 font-bold'
         }`}
       >
         <BarChart3 className="w-5 h-5 stroke-[2.2]" />
-        <span className="text-[10px] font-bold tracking-tight">Stats</span>
+        <span className="text-[10px] tracking-tight">Stats</span>
       </button>
 
       {/* Settings */}
@@ -83,12 +83,12 @@ export const BottomNavBar: React.FC = () => {
         onClick={() => handleTabClick('settings')}
         className={`flex flex-col items-center gap-0.5 transition-all duration-150 cursor-pointer ${
           activeTab === 'settings'
-            ? 'text-blue-600 dark:text-sky-400 scale-105 font-bold'
-            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+            ? 'text-emerald-700 dark:text-emerald-400 scale-105 font-black'
+            : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 font-bold'
         }`}
       >
         <Settings className="w-5 h-5 stroke-[2.2]" />
-        <span className="text-[10px] font-bold tracking-tight">Settings</span>
+        <span className="text-[10px] tracking-tight">Settings</span>
       </button>
     </nav>
   );

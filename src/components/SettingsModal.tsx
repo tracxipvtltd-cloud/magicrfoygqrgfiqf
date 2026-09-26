@@ -67,7 +67,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           className="relative w-full max-w-sm rounded-[34px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-white/60 dark:border-white/10 shadow-2xl p-6 overflow-hidden z-10 max-h-[85vh] overflow-y-auto no-scrollbar"
         >
           {/* Top specular glow */}
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
 
           {/* Close button */}
           <button
@@ -88,9 +88,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </p>
 
           {/* Cloud Account Card */}
-          <div className="mt-4 p-3.5 rounded-2xl bg-blue-50/80 dark:bg-slate-800/70 border border-blue-200/80 dark:border-slate-700 flex items-center justify-between">
+          <div className="mt-4 p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-slate-800/70 border border-emerald-200/80 dark:border-slate-700 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm">
                 <Cloud className="w-5 h-5" />
               </div>
               <div>
@@ -98,7 +98,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   {user ? user.displayName || 'Google Account' : 'Guest Player'}
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                  {user ? 'Synced with Firebase' : 'Scores saved on device'}
+                  {user ? 'Synced with Firebase Cloud' : 'Save progress to cloud'}
                 </p>
               </div>
             </div>
@@ -139,7 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   if (!soundEnabled) sound.playClick();
                 }}
                 className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
-                  soundEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                  soundEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
               >
                 <div
@@ -153,7 +153,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             {/* Haptics */}
             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-blue-600 shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-emerald-600 shadow-xs">
                   <Vibrate className="w-4 h-4" />
                 </div>
                 <div>
@@ -168,7 +168,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   sound.playClick();
                 }}
                 className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
-                  hapticsEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                  hapticsEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
               >
                 <div
@@ -197,7 +197,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   sound.playClick();
                 }}
                 className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
-                  autoCheckErrors ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                  autoCheckErrors ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
               >
                 <div
@@ -238,7 +238,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   }
                 }}
                 className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
-                  isDarkMode ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                  isDarkMode ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
               >
                 <div
@@ -252,7 +252,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             {/* Device Simulator Frame */}
             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-blue-600 shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-emerald-600 shadow-xs">
                   <Smartphone className="w-4 h-4" />
                 </div>
                 <div>
@@ -304,15 +304,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
 
           {/* Educational Magic Square Explanation */}
-          <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-blue-950/40 border border-blue-200/80 dark:border-slate-700 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-black text-blue-900 dark:text-blue-200">
-              <BookOpen className="w-4 h-4 text-blue-600 dark:text-sky-400" />
+          <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-slate-800 dark:to-emerald-950/40 border border-emerald-200/80 dark:border-slate-700 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-black text-emerald-950 dark:text-emerald-200">
+              <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Magic Square Math Academy</span>
             </div>
             <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
               A <strong>magic square</strong> of order <span className="font-mono font-bold">n</span> is an arrangement of the distinct integers from <span className="font-mono font-bold">1</span> to <span className="font-mono font-bold">n²</span> such that the sum of the <span className="font-bold">n</span> numbers in each row, column, and main diagonal is the constant:
             </p>
-            <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 text-center font-mono font-bold text-blue-600 dark:text-sky-400 text-xs shadow-xs border border-blue-200 dark:border-slate-800">
+            <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 text-center font-mono font-bold text-emerald-700 dark:text-emerald-400 text-xs shadow-xs border border-emerald-200 dark:border-slate-800">
               M = n × (n² + 1) / 2
             </div>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">

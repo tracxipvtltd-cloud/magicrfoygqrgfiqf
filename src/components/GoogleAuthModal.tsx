@@ -66,7 +66,7 @@ export const GoogleAuthModal: React.FC = () => {
           className="relative w-full max-w-sm rounded-[32px] bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/60 dark:border-white/10 shadow-2xl p-6 overflow-hidden z-10"
         >
           {/* Top specular reflection line */}
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
 
           {/* Close button */}
           <button
@@ -82,9 +82,9 @@ export const GoogleAuthModal: React.FC = () => {
           {/* Header Icon */}
           <div className="flex flex-col items-center text-center mt-2">
             <div className="relative mb-3">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 p-0.5 shadow-lg shadow-blue-500/30 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 p-0.5 shadow-lg shadow-emerald-500/30 flex items-center justify-center">
                 <div className="w-full h-full rounded-[14px] bg-white dark:bg-slate-900 flex items-center justify-center">
-                  <Cloud className="w-8 h-8 text-blue-600 dark:text-sky-400 fill-blue-50 dark:fill-blue-950" />
+                  <Cloud className="w-8 h-8 text-emerald-600 dark:text-emerald-400 fill-emerald-50 dark:fill-emerald-950" />
                 </div>
               </div>
               <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white">
@@ -97,8 +97,8 @@ export const GoogleAuthModal: React.FC = () => {
             </h3>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 max-w-[260px]">
               {user
-                ? 'Your scores, best streaks, and level progression are securely synced to Firebase Firestore.'
-                : 'Sign in to save your personal bests, compete on global leaderboards, and sync across all mobile devices.'}
+                ? 'Your campaign level, stars, hints, and score are safely saved to Google Cloud Firestore.'
+                : 'Sign in to save your 1,500 levels progression, hints, and sync across any browser or install.'}
             </p>
           </div>
 
@@ -125,10 +125,10 @@ export const GoogleAuthModal: React.FC = () => {
                   <img
                     src={user.photoURL}
                     alt={user.displayName || 'Google Account'}
-                    className="w-12 h-12 rounded-full border-2 border-blue-500 shadow-sm"
+                    className="w-12 h-12 rounded-full border-2 border-emerald-500 shadow-sm"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-blue-600 text-white font-black text-lg flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-600 text-white font-black text-lg flex items-center justify-center">
                     {(user.displayName || 'U')[0]}
                   </div>
                 )}
@@ -150,9 +150,9 @@ export const GoogleAuthModal: React.FC = () => {
 
               {/* Stats snapshot */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-slate-800/40 border border-blue-100 dark:border-slate-700 text-center">
+                <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-slate-800/40 border border-emerald-100 dark:border-slate-700 text-center">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Best Score</div>
-                  <div className="text-sm font-black text-blue-600 dark:text-sky-400 mt-0.5">
+                  <div className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
                     {userProfile.bestScore.toLocaleString()}
                   </div>
                 </div>

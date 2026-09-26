@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { User } from 'firebase/auth';
 import confetti from 'canvas-confetti';
 import { 
@@ -10,15 +10,17 @@ import {
   UserProfile, 
   GameScoreRecord, 
   GameResult,
-  NonogramLevel
+  NonogramLevel,
+  DailyChallengeInfo
 } from '../types';
 import { 
   createSudokuSumPuzzle, 
   validateBoardSums,
   getMagicSumForSize,
   getMaxNumberForSize,
-  generateCampaignLevels,
-  getLevelConfig
+  getLevelConfig,
+  getLevelDescriptor,
+  generateCampaignLevelsChunk
 } from '../services/magicMatrixEngine';
 import { sound } from '../services/soundEffects';
 import { 
@@ -30,6 +32,17 @@ import {
   recordMatchScore,
   recordDailyChallengeCompletion
 } from '../services/firebase';
+import {
+  calculateDifficulty,
+  calculateLevelScore,
+  calculateLevelXP,
+  calculateParMoves,
+  calculateStars,
+  getPlayerLevelInfo,
+  PlayerLevelInfo,
+  generateDailyChallenge,
+  MAX_LEVEL
+} from '../services/numtrixProgression';
 
 interface HistoryEntry {
   row: number;
@@ -37,6 +50,8 @@ interface HistoryEntry {
   prevValue: number | null;
   prevNotes: number[];
 }
+
+export const TOTAL_CAMPAIGN_LEVELS = MAX_LEVEL;
 
 interface GameContextType {
   // Navigation & Screen
@@ -56,7 +71,7 @@ interface GameContextType {
   difficulty: DifficultyLevel;
   setDifficulty: (diff: DifficultyLevel) => void;
 
-  // Grid Interaction: Tapping upper box, then tapping lower number set
+  // Grid Interaction
   selectedCell: { row: number; col: number } | null;
   selectCell: (row: number, col: number) => void;
   enterNumber: (num: number) => void;
@@ -67,15 +82,18 @@ interface GameContextType {
   canUndo: boolean;
   useHint: () => void;
   hintsLeft: number;
+  levelsCompletedTowardsHint: number;
+  earnedHintToast: boolean;
+  dismissHintToast: () => void;
 
-  // No-repeat duplicate detection & status
+  // Duplicate conflict warning
   duplicateCells: { row: number; col: number }[];
   rowHasDuplicates: boolean[];
   colHasDuplicates: boolean[];
   conflictWarning: string | null;
   clearConflictWarning: () => void;
 
-  // Live Line Sums & Status
+  // Line Sums & Status
   rowSums: number[];
   colSums: number[];
   diag1Sum: number;
@@ -85,29 +103,52 @@ interface GameContextType {
   isDiag1Complete: boolean;
   isDiag2Complete: boolean;
 
-  // Game Stats
+  // Game Stats, Moves & Defeat handling
   score: number;
   lives: number;
   maxLives: number;
   streak: number;
+  movesCount: number;
+  parMoves: number;
   timeElapsed: number;
   isPaused: boolean;
   togglePause: () => void;
+  isGameOver: boolean;
+  gameOverReason: 'lives' | 'timeout' | null;
   startNewGame: (size?: MatrixSize, target?: number, diff?: DifficultyLevel, mode?: GameMode) => void;
   restartGame: () => void;
+  restartLevel: () => void;
+  reviveGame: () => void;
   quitGame: () => void;
   lastResult: GameResult | null;
 
-  // Nonogram Level Progression: Start from zero, board sizes assigned by level
+  // Campaign Levels (1500+ levels)
+  totalCampaignLevels: number;
+  highestUnlockedLevel: number;
+  completedLevelsMap: Record<number, { stars: number; bestTime?: number }>;
   levelsProgress: NonogramLevel[];
   currentLevelNumber: number | null;
   startLevel: (levelNumOrSize: MatrixSize | number, levelNumOpt?: number) => void;
+  getLevelData: (levelNumber: number) => NonogramLevel;
   resetAllProgress: () => void;
   isDailyChallenge: boolean;
   startDailyChallenge: (day?: number) => void;
   completedDailyDates: string[];
+  dailyChallengeInfo: DailyChallengeInfo;
 
-  // Auth & Profile
+  // Progression & Player Level
+  playerLevelInfo: PlayerLevelInfo;
+  currentLevelDifficulty: number;
+  currentLevelBaseScore: number;
+  currentLevelBaseXP: number;
+  calculateLevelScore: (level: number) => number;
+  calculateLevelXP: (level: number) => number;
+  calculateDifficulty: (level: number) => number;
+  calculateParMoves: (gridSize: number) => number;
+  calculateStars: (completed: boolean, mistakes: number, moves: number, parMoves: number) => number;
+  getPlayerLevelInfo: (totalXP: number) => PlayerLevelInfo;
+
+  // Auth, Profile & Cloud Sync
   user: User | null;
   userProfile: UserProfile;
   isAuthModalOpen: boolean;
@@ -115,6 +156,7 @@ interface GameContextType {
   handleLoginWithGoogle: () => Promise<void>;
   handleLogout: () => Promise<void>;
   authLoading: boolean;
+  cloudSyncStatus: 'synced' | 'saving' | 'offline' | 'local';
 
   // Settings & Theme
   soundEnabled: boolean;
@@ -130,7 +172,6 @@ interface GameContextType {
   setAutoCheckErrors: (val: boolean) => void;
 }
 
-// Start from ZERO: level 1, 0 XP, 0 games played, 0 best score
 const DEFAULT_PROFILE: UserProfile = {
   userId: 'local_guest',
   displayName: 'Numtrix Hunter',
@@ -142,6 +183,9 @@ const DEFAULT_PROFILE: UserProfile = {
   totalCorrect: 0,
   totalWrong: 0,
   avgReactionTime: 0,
+  highestUnlockedLevel: 1,
+  hintsLeft: 3,
+  levelsCompletedTowardsHint: 0,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -149,79 +193,167 @@ const DEFAULT_PROFILE: UserProfile = {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Navigation: Nonogram structure (home/levels, daily, difficulty/play, game, result, leaderboard)
+  // Navigation
   const [currentScreen, setCurrentScreen] = useState<'home' | 'difficulty' | 'game' | 'result' | 'leaderboard' | 'daily'>('home');
   const [activeTab, setActiveTab] = useState<'home' | 'daily' | 'play' | 'stats' | 'settings'>('home');
 
-  // Starting at Level 1: 3x3 starter board (values 1..9, target sum 15, beginner)
+  // Firebase Auth & Cloud Sync
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'saving' | 'offline' | 'local'>('local');
+
+  // Settings
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    const s = localStorage.getItem('numtrix_sound');
+    return s !== null ? s === 'true' : true;
+  });
+  const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(() => {
+    const h = localStorage.getItem('numtrix_haptics');
+    return h !== null ? h === 'true' : true;
+  });
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('numtrix_theme');
+    if (saved) return saved === 'dark';
+    return false; // Default clean emerald mode
+  });
+  const [deviceFrame, setDeviceFrame] = useState<'iphone' | 'fullscreen'>('iphone');
+  const [autoCheckErrors, setAutoCheckErrors] = useState<boolean>(true);
+
+  // Campaign State (1500+ Levels)
+  const [highestUnlockedLevel, setHighestUnlockedLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('numtrix_highest_level');
+    return saved ? Math.max(1, parseInt(saved, 10)) : 1;
+  });
+
+  const [completedLevelsMap, setCompletedLevelsMap] = useState<Record<number, { stars: number; bestTime?: number }>>(() => {
+    try {
+      const saved = localStorage.getItem('numtrix_completed_levels_map');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Hints System (Starts with 3 hints, earns +1 hint every 10 levels completed)
+  const [hintsLeft, setHintsLeft] = useState<number>(() => {
+    const saved = localStorage.getItem('numtrix_hints_left');
+    return saved !== null ? Math.max(0, parseInt(saved, 10)) : 3;
+  });
+
+  const [levelsCompletedTowardsHint, setLevelsCompletedTowardsHint] = useState<number>(() => {
+    const saved = localStorage.getItem('numtrix_levels_for_hint');
+    return saved !== null ? Math.max(0, parseInt(saved, 10)) : 0;
+  });
+
+  const [earnedHintToast, setEarnedHintToast] = useState(false);
+
+  const [currentLevelNumber, setCurrentLevelNumber] = useState<number | null>(null);
+  const [isDailyChallenge, setIsDailyChallenge] = useState(false);
+  const [completedDailyDates, setCompletedDailyDates] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('numtrix_daily_completed');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Active Puzzle Configuration
   const [selectedSize, setSelectedSize] = useState<MatrixSize>(3);
   const [targetSum, setTargetSum] = useState<number>(15);
   const [selectedMode, setSelectedMode] = useState<GameMode>('classic');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('beginner');
 
-  // Level Progression: Start from zero, board sizes assigned by level
-  const [currentLevelNumber, setCurrentLevelNumber] = useState<number | null>(1);
-  const [isDailyChallenge, setIsDailyChallenge] = useState(false);
+  // Master Puzzle State
+  const [puzzle, setPuzzle] = useState<SudokuSumPuzzle>(() =>
+    createSudokuSumPuzzle(3, 15, 'beginner', 'classic')
+  );
 
-  const [levelsProgress, setLevelsProgress] = useState<NonogramLevel[]>(() => {
-    const saved = localStorage.getItem('numtrix_campaign_levels');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // If this was an old mock dataset where level 2 or 3 was pre-completed, reset to 0
-          const hasOldMockData = parsed.some((l: NonogramLevel) => l.levelNumber > 1 && l.isCompleted && !localStorage.getItem('numtrix_has_played'));
-          if (!hasOldMockData) {
-            return parsed;
-          }
-        }
-      } catch {
-        /* fallback */
-      }
-    }
-    return generateCampaignLevels(48);
-  });
-
-  const [completedDailyDates, setCompletedDailyDates] = useState<string[]>(() => {
-    const saved = localStorage.getItem('numtrix_daily_completed') || localStorage.getItem('sumoku_daily_completed');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        /* fallback */
-      }
-    }
-    const today = new Date();
-    // Pre-populate a couple completed past dates for realistic calendar
-    const d1 = new Date(today);
-    d1.setDate(today.getDate() - 1);
-    const d2 = new Date(today);
-    d2.setDate(today.getDate() - 2);
-    return [d1.toISOString().slice(0, 10), d2.toISOString().slice(0, 10)];
-  });
-
-  // Settings & Theme
-  const [soundEnabled, setSoundEnabledState] = useState(true);
-  const [hapticsEnabled, setHapticsEnabledState] = useState(true);
-
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('numtrix_theme') || localStorage.getItem('magicmatrix_theme');
-    if (saved) return saved === 'dark';
-    return false;
-  });
-
-  const [deviceFrame, setDeviceFrame] = useState<'iphone' | 'fullscreen'>('iphone');
-  const [autoCheckErrors, setAutoCheckErrors] = useState(true);
-
-  // Duplicate error state
+  // User Interactive Selection
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
+  const [isPencilMode, setIsPencilMode] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+
+  // Sums & duplicates tracking
+  const [rowSums, setRowSums] = useState<number[]>([0, 0, 0]);
+  const [colSums, setColSums] = useState<number[]>([0, 0, 0]);
+  const [diag1Sum, setDiag1Sum] = useState<number>(0);
+  const [diag2Sum, setDiag2Sum] = useState<number>(0);
+  const [isRowComplete, setIsRowComplete] = useState<boolean[]>([false, false, false]);
+  const [isColComplete, setIsColComplete] = useState<boolean[]>([false, false, false]);
+  const [isDiag1Complete, setIsDiag1Complete] = useState<boolean>(false);
+  const [isDiag2Complete, setIsDiag2Complete] = useState<boolean>(false);
+  const [rowHasDuplicates, setRowHasDuplicates] = useState<boolean[]>([false, false, false]);
+  const [colHasDuplicates, setColHasDuplicates] = useState<boolean[]>([false, false, false]);
   const [duplicateCells, setDuplicateCells] = useState<{ row: number; col: number }[]>([]);
-  const [rowHasDuplicates, setRowHasDuplicates] = useState<boolean[]>([]);
-  const [colHasDuplicates, setColHasDuplicates] = useState<boolean[]>([]);
 
-  const clearConflictWarning = () => setConflictWarning(null);
+  // Moves & Stats
+  const [movesCount, setMovesCount] = useState(0);
+  const [score, setScore] = useState(0);
+  const [lives, setLives] = useState(3);
+  const [maxLives, setMaxLives] = useState(3);
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [gameOverReason, setGameOverReason] = useState<'lives' | 'timeout' | null>(null);
+  const [lastResult, setLastResult] = useState<GameResult | null>(null);
 
-  // Sync dark class on documentElement
+  const timerRef = useRef<number | null>(null);
+
+  // Calculated par moves for current puzzle
+  const parMoves = useMemo(() => {
+    return calculateParMoves(puzzle.size);
+  }, [puzzle.size]);
+
+  // Player Level & XP Info
+  const playerLevelInfo = useMemo(() => {
+    return getPlayerLevelInfo(userProfile.xp || 0);
+  }, [userProfile.xp]);
+
+  // Today's Daily Challenge configuration
+  const todayDateStr = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}${m}${d}`;
+  }, []);
+
+  const dailyChallengeInfo = useMemo(() => {
+    const playerId = user ? user.uid : 'guest';
+    const streakCount = userProfile.dailyStreak || 0;
+    return generateDailyChallenge(todayDateStr, playerId, playerLevelInfo.playerLevel, streakCount);
+  }, [todayDateStr, user, playerLevelInfo.playerLevel, userProfile.dailyStreak]);
+
+  // Current Level Difficulty Rating (1 to 10): min(10, 1 + floor((L - 1) / 150))
+  const currentLevelDifficulty = useMemo(() => {
+    return calculateDifficulty(currentLevelNumber || 1);
+  }, [currentLevelNumber]);
+
+  // Current Level Base Score: round(100 + L * 18 + pow(L, 1.12) * 12 + D * 75)
+  const currentLevelBaseScore = useMemo(() => {
+    if (isDailyChallenge) {
+      return dailyChallengeInfo.scoreReward;
+    }
+    return calculateLevelScore(currentLevelNumber || 1);
+  }, [isDailyChallenge, dailyChallengeInfo.scoreReward, currentLevelNumber]);
+
+  // Current Level Base XP: round(25 + L * 2.5 + pow(L, 1.08) * 4 + D * 12)
+  const currentLevelBaseXP = useMemo(() => {
+    if (isDailyChallenge) {
+      return dailyChallengeInfo.xpReward + dailyChallengeInfo.streakBonus;
+    }
+    return calculateLevelXP(currentLevelNumber || 1);
+  }, [isDailyChallenge, dailyChallengeInfo.xpReward, dailyChallengeInfo.streakBonus, currentLevelNumber]);
+
+  // Apply dark mode class on html/body element
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -237,116 +369,145 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsDarkMode((prev) => !prev);
   };
 
-  const setSoundEnabled = (val: boolean) => {
-    setSoundEnabledState(val);
-    sound.soundEnabled = val;
-  };
-  const setHapticsEnabled = (val: boolean) => {
-    setHapticsEnabledState(val);
-    sound.hapticsEnabled = val;
-  };
-
-  // Auth state
-  const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('numtrix_profile') || localStorage.getItem('magicmatrix_profile');
-    if (saved) {
-      try {
-        const p = JSON.parse(saved);
-        // Start from zero: if old mock profile values exist, reset to zero
-        if (p.gamesPlayed === 142 || p.xp === 3240) {
-          return DEFAULT_PROFILE;
-        }
-        return p;
-      } catch { /* ignore */ }
-    }
-    return DEFAULT_PROFILE;
-  });
-  const [authLoading, setAuthLoading] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
-  // Sync Firebase Auth
+  // Auth observer & Cloud Sync Handler
+  // User Requirement:
+  // "everytime a person logins or installs we need to have him start from where he is if he was new just leave him alone but whenever a person already have made progress then they should continue from where the game has saved to cloud"
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
       setUser(currentUser);
+      setAuthLoading(true);
+
       if (currentUser) {
         try {
-          const profile = await fetchUserProfile(currentUser.uid);
-          if (profile) {
-            setUserProfile(profile);
-            localStorage.setItem('numtrix_profile', JSON.stringify(profile));
-          } else {
-            const newProfile: UserProfile = {
-              ...userProfile,
+          const cloudDoc = await fetchUserProfile(currentUser.uid);
+          if (cloudDoc) {
+            // Player already made progress in cloud! Restore their exact state!
+            const cloudHighest = cloudDoc.highestUnlockedLevel || 1;
+            const localHighest = parseInt(localStorage.getItem('numtrix_highest_level') || '1', 10);
+            const resolvedHighest = Math.max(cloudHighest, localHighest);
+
+            let resolvedCompletedMap: Record<number, { stars: number; bestTime?: number }> = {};
+            try {
+              const localMap = JSON.parse(localStorage.getItem('numtrix_completed_levels_map') || '{}');
+              const cloudMap = cloudDoc.completedLevelsData ? JSON.parse(cloudDoc.completedLevelsData) : {};
+              resolvedCompletedMap = { ...cloudMap, ...localMap };
+            } catch (err) {
+              console.warn('Completed levels map parse warning:', err);
+            }
+
+            const resolvedHints = cloudDoc.hintsLeft !== undefined 
+              ? cloudDoc.hintsLeft 
+              : parseInt(localStorage.getItem('numtrix_hints_left') || '3', 10);
+
+            const resolvedLevelsForHint = cloudDoc.levelsCompletedTowardsHint !== undefined
+              ? cloudDoc.levelsCompletedTowardsHint
+              : parseInt(localStorage.getItem('numtrix_levels_for_hint') || '0', 10);
+
+            const resolvedXP = Math.max(cloudDoc.xp || 0, userProfile.xp || 0);
+            const resolvedPlayerLevel = getPlayerLevelInfo(resolvedXP).playerLevel;
+
+            setHighestUnlockedLevel(resolvedHighest);
+            setCompletedLevelsMap(resolvedCompletedMap);
+            setHintsLeft(resolvedHints);
+            setLevelsCompletedTowardsHint(resolvedLevelsForHint);
+
+            localStorage.setItem('numtrix_highest_level', String(resolvedHighest));
+            localStorage.setItem('numtrix_completed_levels_map', JSON.stringify(resolvedCompletedMap));
+            localStorage.setItem('numtrix_hints_left', String(resolvedHints));
+            localStorage.setItem('numtrix_levels_for_hint', String(resolvedLevelsForHint));
+
+            const syncedProfile: UserProfile = {
+              ...cloudDoc,
               userId: currentUser.uid,
-              displayName: currentUser.displayName || 'Numtrix Master',
-              email: currentUser.email || undefined,
-              photoURL: currentUser.photoURL || undefined,
+              displayName: currentUser.displayName || cloudDoc.displayName || 'Numtrix Hunter',
+              email: currentUser.email || cloudDoc.email || undefined,
+              photoURL: currentUser.photoURL || cloudDoc.photoURL || undefined,
+              highestUnlockedLevel: resolvedHighest,
+              hintsLeft: resolvedHints,
+              levelsCompletedTowardsHint: resolvedLevelsForHint,
+              xp: resolvedXP,
+              level: resolvedPlayerLevel,
+              completedLevelsData: JSON.stringify(resolvedCompletedMap),
               updatedAt: new Date().toISOString(),
             };
-            setUserProfile(newProfile);
-            await saveUserProfile(newProfile);
-            localStorage.setItem('numtrix_profile', JSON.stringify(newProfile));
+
+            setUserProfile(syncedProfile);
+            localStorage.setItem('numtrix_profile', JSON.stringify(syncedProfile));
+            setCloudSyncStatus('synced');
+          } else {
+            // First time login for this Google Account:
+            // Back up their local progress to the cloud so they never lose it!
+            const newCloudProfile: UserProfile = {
+              ...userProfile,
+              userId: currentUser.uid,
+              displayName: currentUser.displayName || 'Numtrix Hunter',
+              email: currentUser.email || undefined,
+              photoURL: currentUser.photoURL || undefined,
+              highestUnlockedLevel,
+              hintsLeft,
+              levelsCompletedTowardsHint,
+              completedLevelsData: JSON.stringify(completedLevelsMap),
+              completedDailyDates: JSON.stringify(completedDailyDates),
+              level: getPlayerLevelInfo(userProfile.xp || 0).playerLevel,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            setUserProfile(newCloudProfile);
+            await saveUserProfile(newCloudProfile);
+            setCloudSyncStatus('synced');
           }
         } catch (e) {
-          console.warn('Profile sync notice:', e);
+          console.warn('Error syncing cloud profile:', e);
+          setCloudSyncStatus('offline');
         }
+      } else {
+        // Not logged in:
+        // "if he was new just leave him alone" - read from localStorage or keep clean guest state
+        const local = localStorage.getItem('numtrix_profile');
+        if (local) {
+          try {
+            setUserProfile(JSON.parse(local));
+          } catch {
+            setUserProfile(DEFAULT_PROFILE);
+          }
+        } else {
+          setUserProfile(DEFAULT_PROFILE);
+        }
+        setCloudSyncStatus('local');
       }
+      setAuthLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
   const handleLoginWithGoogle = async () => {
-    setAuthLoading(true);
     try {
-      await loginWithGoogle();
-      sound.playVictory();
-      setIsAuthModalOpen(false);
+      setAuthLoading(true);
+      const userRes = await loginWithGoogle();
+      if (userRes) {
+        sound.playVictory();
+        setIsAuthModalOpen(false);
+      }
     } catch (err) {
       sound.playWrong();
-      throw err;
+      console.error('Login error:', err);
     } finally {
       setAuthLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    await logoutUser();
-    setUser(null);
-    sound.playClick();
+    try {
+      await logoutUser();
+      setUserProfile(DEFAULT_PROFILE);
+      setIsAuthModalOpen(false);
+      setCloudSyncStatus('local');
+      sound.playClick();
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
   };
-
-  // Puzzle State: Default Level 1 (3x3 with target sum 15, values 1..9, beginner)
-  const [puzzle, setPuzzle] = useState<SudokuSumPuzzle>(() =>
-    createSudokuSumPuzzle(3, 15, 'beginner', 'classic')
-  );
-  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
-  const [isPencilMode, setIsPencilMode] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [hintsLeft, setHintsLeft] = useState(3);
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [maxStreak, setMaxStreak] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [wrongCount, setWrongCount] = useState(0);
-  const [lives, setLives] = useState(3);
-  const [maxLives, setMaxLives] = useState(3);
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeElapsed, setTimeElapsed] = useState(0);
-  const [lastResult, setLastResult] = useState<GameResult | null>(null);
-
-  // Live line calculations
-  const [rowSums, setRowSums] = useState<number[]>([]);
-  const [colSums, setColSums] = useState<number[]>([]);
-  const [diag1Sum, setDiag1Sum] = useState(0);
-  const [diag2Sum, setDiag2Sum] = useState(0);
-  const [isRowComplete, setIsRowComplete] = useState<boolean[]>([]);
-  const [isColComplete, setIsColComplete] = useState<boolean[]>([]);
-  const [isDiag1Complete, setIsDiag1Complete] = useState(false);
-  const [isDiag2Complete, setIsDiag2Complete] = useState(false);
-
-  // Timer Ref
-  const timerRef = useRef<number | null>(null);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -366,8 +527,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => stopTimer();
   }, [stopTimer]);
 
-  // Recalculate sums and check duplicate numbers whenever puzzle grid changes
+  // Dynamic helper for campaign levels
+  const getLevelData = useCallback(
+    (levelNum: number): NonogramLevel => {
+      return getLevelDescriptor(levelNum, highestUnlockedLevel, completedLevelsMap);
+    },
+    [highestUnlockedLevel, completedLevelsMap]
+  );
+
+  // Expose a window of levels for backwards compatibility / home screen
+  const levelsProgress = useMemo(() => {
+    return generateCampaignLevelsChunk(1, 48, highestUnlockedLevel, completedLevelsMap);
+  }, [highestUnlockedLevel, completedLevelsMap]);
+
+  // Recalculate sums and check victory condition whenever puzzle grid changes
   useEffect(() => {
+    if (isGameOver) return;
+
     const rawGrid = puzzle.grid.map((r) => r.map((c) => c.value));
     const val = validateBoardSums(rawGrid, puzzle.targetSum);
     setRowSums(val.rowSums);
@@ -382,7 +558,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setColHasDuplicates(val.colHasDuplicates);
     setDuplicateCells(val.duplicateCells);
 
-    // Synchronize isDuplicate flag onto cells so UI can render duplicate conflict glow
+    // Sync duplicate highlight onto cells
     const dupKeySet = new Set(val.duplicateCells.map((d) => `${d.row},${d.col}`));
     let hasGridChange = false;
     const nextGrid = puzzle.grid.map((row, r) =>
@@ -400,68 +576,107 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPuzzle((prev) => ({ ...prev, grid: nextGrid }));
     }
 
-    // Check for victory condition! (Must have satisfied sums AND NO REPEATED NUMBERS)
-    if (val.allLinesSatisfied) {
+    // Victory Condition: All lines satisfied AND all cells filled uniquely!
+    if (val.allLinesSatisfied && !isGameOver) {
       handleGameWin();
     }
-  }, [puzzle.grid, puzzle.targetSum]);
+  }, [puzzle.grid, puzzle.targetSum, isGameOver]);
 
-  // Win Handler
+  // Win Handler - ONLY called when puzzle is legitimately completed!
   const handleGameWin = useCallback(() => {
     stopTimer();
     sound.playVictory();
     confetti({
-      particleCount: 120,
-      spread: 80,
+      particleCount: 140,
+      spread: 85,
       origin: { y: 0.6 },
-      colors: ['#3B82F6', '#22D3EE', '#22C55E', '#F59E0B', '#A855F7'],
+      colors: ['#10B981', '#34D399', '#059669', '#F59E0B', '#6EE7B7'],
     });
 
+    // Score & XP Formulas from user specification:
+    // "score": "round(100 + L * 18 + pow(L, 1.12) * 12 + D * 75)"
+    // "xp": "round(25 + L * 2.5 + pow(L, 1.08) * 4 + D * 12)"
+    const levelToUse = currentLevelNumber || 1;
+    const levelDiff = calculateDifficulty(levelToUse);
+    const baseScore = isDailyChallenge 
+      ? dailyChallengeInfo.scoreReward 
+      : calculateLevelScore(levelToUse);
+    const baseXP = isDailyChallenge 
+      ? dailyChallengeInfo.xpReward + dailyChallengeInfo.streakBonus
+      : calculateLevelXP(levelToUse);
+
     const speedBonus = Math.max(0, Math.round((120 - Math.min(timeElapsed, 110)) * 25));
-    const finalScore = score + 2500 + speedBonus;
+    const speedXP = Math.round(speedBonus / 10);
+    const placementScore = score;
+    const finalScore = placementScore + baseScore + speedBonus;
     const accuracy = correctCount + wrongCount > 0 
       ? Math.round((correctCount / (correctCount + wrongCount)) * 1000) / 10 
       : 100;
-    const xpEarned = Math.round(finalScore / 10) + 300;
+    const xpEarned = baseXP + speedXP;
     const isNewBest = finalScore > userProfile.bestScore;
 
-    // Calculate stars: 3 stars if 0 wrong, 2 stars if <=2 wrong, 1 star otherwise
-    const starsAwarded = wrongCount === 0 ? 3 : wrongCount <= 2 ? 2 : 1;
+    // Stars Formula from user specification:
+    // 3: mistakes == 0 && moves <= parMoves
+    // 2: mistakes <= 2 && moves <= parMoves * 1.25
+    // 1: completed
+    const starsAwarded = calculateStars(true, wrongCount, movesCount, parMoves);
 
-    // Update Nonogram level progression if playing a campaign level
+    // Player level & XP progression update using formulas
+    const previousPlayerXP = userProfile.xp || 0;
+    const previousPlayerLevel = userProfile.level || 1;
+    const newTotalXP = previousPlayerXP + xpEarned;
+    const newPlayerLevelInfo = getPlayerLevelInfo(newTotalXP);
+    const newPlayerLevel = newPlayerLevelInfo.playerLevel;
+    const didLevelUp = newPlayerLevel > previousPlayerLevel;
+
+    // Update Campaign level progression up to 1500+
+    let nextHighestUnlocked = highestUnlockedLevel;
+    let nextCompletedLevelsMap = { ...completedLevelsMap };
+
     if (currentLevelNumber) {
-      localStorage.setItem('numtrix_has_played', 'true');
-      setLevelsProgress((prev) => {
-        const updatedList = prev.map((lvl) => {
-          if (lvl.levelNumber === currentLevelNumber) {
-            return {
-              ...lvl,
-              isCompleted: true,
-              stars: Math.max(lvl.stars, starsAwarded),
-              bestTime: lvl.bestTime ? Math.min(lvl.bestTime, timeElapsed) : timeElapsed,
-            };
-          }
-          if (lvl.levelNumber === currentLevelNumber + 1) {
-            return { ...lvl, isUnlocked: true };
-          }
-          return lvl;
-        });
-        localStorage.setItem('numtrix_campaign_levels', JSON.stringify(updatedList));
-        return updatedList;
-      });
+      nextHighestUnlocked = Math.max(highestUnlockedLevel, currentLevelNumber + 1);
+      setHighestUnlockedLevel(nextHighestUnlocked);
+      localStorage.setItem('numtrix_highest_level', String(nextHighestUnlocked));
+
+      nextCompletedLevelsMap = {
+        ...completedLevelsMap,
+        [currentLevelNumber]: {
+          stars: Math.max(completedLevelsMap[currentLevelNumber]?.stars || 0, starsAwarded),
+          bestTime: completedLevelsMap[currentLevelNumber]?.bestTime 
+            ? Math.min(completedLevelsMap[currentLevelNumber].bestTime!, timeElapsed)
+            : timeElapsed,
+        },
+      };
+      setCompletedLevelsMap(nextCompletedLevelsMap);
+      localStorage.setItem('numtrix_completed_levels_map', JSON.stringify(nextCompletedLevelsMap));
     }
 
+    // Hint Reward System:
+    // "the total number of hints must be only 3 and if needed more they need to complete 10 more levels to get one more hint as an option"
+    let nextLevelsForHint = levelsCompletedTowardsHint + 1;
+    let nextHintsLeft = hintsLeft;
+    if (nextLevelsForHint >= 10) {
+      nextHintsLeft += 1;
+      nextLevelsForHint = 0;
+      setEarnedHintToast(true);
+      sound.playVictory();
+    }
+    setHintsLeft(nextHintsLeft);
+    setLevelsCompletedTowardsHint(nextLevelsForHint);
+    localStorage.setItem('numtrix_hints_left', String(nextHintsLeft));
+    localStorage.setItem('numtrix_levels_for_hint', String(nextLevelsForHint));
+
     // Daily Challenge completion record
+    let nextDailyDates = [...completedDailyDates];
+    let nextDailyStreak = userProfile.dailyStreak || 0;
     if (isDailyChallenge) {
       const todayStr = new Date().toISOString().slice(0, 10);
-      setCompletedDailyDates((prev) => {
-        if (!prev.includes(todayStr)) {
-          const nextDates = [...prev, todayStr];
-          localStorage.setItem('sumoku_daily_completed', JSON.stringify(nextDates));
-          return nextDates;
-        }
-        return prev;
-      });
+      if (!nextDailyDates.includes(todayStr)) {
+        nextDailyDates.push(todayStr);
+        nextDailyStreak += 1;
+        setCompletedDailyDates(nextDailyDates);
+        localStorage.setItem('numtrix_daily_completed', JSON.stringify(nextDailyDates));
+      }
       if (user) {
         recordDailyChallengeCompletion({
           recordId: `daily_${Date.now()}`,
@@ -477,33 +692,53 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const result: GameResult = {
       score: finalScore,
+      baseScore,
+      placementScore,
       accuracy,
       correctAnswers: correctCount,
       wrongAnswers: wrongCount,
       bestStreak: Math.max(maxStreak, streak),
       timeSeconds: timeElapsed,
       speedBonus,
+      baseXP,
+      speedXP,
       xpEarned,
       isNewBest,
       matrixSize: puzzle.size,
       targetSum: puzzle.targetSum,
       mode: puzzle.mode,
       difficulty: puzzle.difficulty,
+      levelNumber: currentLevelNumber || undefined,
+      levelDifficulty: levelDiff,
+      movesCount,
+      parMoves,
+      starsEarned: starsAwarded,
+      previousPlayerXP,
+      newPlayerXP: newTotalXP,
+      previousPlayerLevel,
+      newPlayerLevel,
+      didLevelUp,
       solvedGrid: puzzle.grid.map((r) => r.map((c) => c.value || 0)),
     };
 
     setLastResult(result);
+    setIsGameOver(false);
 
-    // Profile updates
     const updatedProfile: UserProfile = {
       ...userProfile,
       gamesPlayed: userProfile.gamesPlayed + 1,
-      xp: userProfile.xp + xpEarned,
-      level: Math.floor((userProfile.xp + xpEarned) / 250) + 1,
+      xp: newTotalXP,
+      level: newPlayerLevel,
       bestScore: Math.max(userProfile.bestScore, finalScore),
       bestStreak: Math.max(userProfile.bestStreak, maxStreak),
       totalCorrect: userProfile.totalCorrect + correctCount,
       totalWrong: userProfile.totalWrong + wrongCount,
+      highestUnlockedLevel: nextHighestUnlocked,
+      hintsLeft: nextHintsLeft,
+      levelsCompletedTowardsHint: nextLevelsForHint,
+      completedLevelsData: JSON.stringify(nextCompletedLevelsMap),
+      completedDailyDates: JSON.stringify(nextDailyDates),
+      dailyStreak: nextDailyStreak,
       avgReactionTime: correctCount > 0 
         ? Math.round((timeElapsed / correctCount) * 100) / 100 
         : userProfile.avgReactionTime,
@@ -513,8 +748,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserProfile(updatedProfile);
     localStorage.setItem('numtrix_profile', JSON.stringify(updatedProfile));
 
+    // Real-time Cloud Save
     if (user) {
-      saveUserProfile(updatedProfile).catch((err) => console.warn('Cloud sync error:', err));
+      setCloudSyncStatus('saving');
+      saveUserProfile(updatedProfile)
+        .then(() => setCloudSyncStatus('synced'))
+        .catch((err) => {
+          console.warn('Cloud sync error:', err);
+          setCloudSyncStatus('offline');
+        });
+
       const record: GameScoreRecord = {
         scoreId: `score_${Date.now()}_${user.uid.slice(0, 5)}`,
         userId: user.uid,
@@ -541,13 +784,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     timeElapsed, 
     correctCount, 
     wrongCount, 
+    movesCount,
+    parMoves,
     maxStreak, 
     streak, 
     userProfile, 
     puzzle, 
     user,
     currentLevelNumber,
-    isDailyChallenge
+    isDailyChallenge,
+    dailyChallengeInfo,
+    highestUnlockedLevel,
+    completedLevelsMap,
+    completedDailyDates,
+    hintsLeft,
+    levelsCompletedTowardsHint
   ]);
 
   // Start / Reset Game with N x N unique values & magic sum
@@ -568,11 +819,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setDifficulty(diff);
       setSelectedMode(md);
       setConflictWarning(null);
+      setIsGameOver(false);
+      setGameOverReason(null);
 
       const newPuzzle = createSudokuSumPuzzle(sz, tgt, diff, md);
       setPuzzle(newPuzzle);
 
-      // Select first empty upper cell
+      // Select first empty cell that is NOT a given
       let firstEmpty: { row: number; col: number } | null = null;
       for (let r = 0; r < sz; r++) {
         for (let c = 0; c < sz; c++) {
@@ -593,7 +846,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setMaxStreak(0);
       setCorrectCount(0);
       setWrongCount(0);
-      setHintsLeft(3);
+      setMovesCount(0);
       setHistory([]);
       setIsPaused(false);
       setTimeElapsed(0);
@@ -605,60 +858,84 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [selectedSize, difficulty, selectedMode, startTimer]
   );
 
-  // Start a specific Nonogram level (board size and difficulty are assigned by level)
+  // Start a specific Campaign Level (supporting 1 to 1500+ levels!)
   const startLevel = useCallback(
     (levelNumOrSize: MatrixSize | number, levelNumOpt?: number) => {
       const targetLevelNum = typeof levelNumOpt === 'number' ? levelNumOpt : (levelNumOrSize as number);
       setCurrentLevelNumber(targetLevelNum);
       setIsDailyChallenge(false);
-      const level = levelsProgress.find((l) => l.levelNumber === targetLevelNum) || levelsProgress[0];
-      startNewGame(level.size, level.targetSum, level.difficulty, 'classic');
-    },
-    [levelsProgress, startNewGame]
-  );
-
-  // Reset all progress back to zero
-  const resetAllProgress = useCallback(() => {
-    const freshLevels = generateCampaignLevels(48);
-    setLevelsProgress(freshLevels);
-    setUserProfile(DEFAULT_PROFILE);
-    localStorage.removeItem('numtrix_campaign_levels');
-    localStorage.removeItem('numtrix_levels_progress');
-    localStorage.removeItem('sumoku_levels_progress');
-    localStorage.removeItem('numtrix_profile');
-    localStorage.removeItem('magicmatrix_profile');
-    localStorage.removeItem('numtrix_daily_completed');
-    localStorage.removeItem('sumoku_daily_completed');
-    localStorage.removeItem('numtrix_has_played');
-    startNewGame(freshLevels[0].size, freshLevels[0].targetSum, freshLevels[0].difficulty, 'classic');
-    setCurrentScreen('home');
-  }, [startNewGame]);
-
-  // Start Daily Challenge
-  const startDailyChallenge = useCallback(
-    (day?: number) => {
-      setCurrentLevelNumber(null);
-      setIsDailyChallenge(true);
-      // Daily challenge is 5x5 (target 65, values 1 to 25) with medium puzzle
-      startNewGame(5, 65, 'medium', 'classic');
+      const config = getLevelConfig(targetLevelNum);
+      const targetSumForSize = getMagicSumForSize(config.size);
+      startNewGame(config.size, targetSumForSize, config.difficulty, 'classic');
     },
     [startNewGame]
   );
 
-  // Cell Selection (Upper box tap)
+  // Restart current level
+  const restartLevel = useCallback(() => {
+    if (currentLevelNumber) {
+      startLevel(currentLevelNumber);
+    } else {
+      startNewGame(puzzle.size, puzzle.targetSum, puzzle.difficulty, puzzle.mode);
+    }
+  }, [currentLevelNumber, startLevel, startNewGame, puzzle]);
+
+  // Revive / Second Chance (+2 lives, resume puzzle)
+  const reviveGame = useCallback(() => {
+    sound.playClick();
+    setLives(2);
+    setIsGameOver(false);
+    setGameOverReason(null);
+    startTimer();
+  }, [startTimer]);
+
+  // Reset all progress back to zero
+  const resetAllProgress = useCallback(() => {
+    setHighestUnlockedLevel(1);
+    setCompletedLevelsMap({});
+    setHintsLeft(3);
+    setLevelsCompletedTowardsHint(0);
+    setUserProfile(DEFAULT_PROFILE);
+    localStorage.removeItem('numtrix_highest_level');
+    localStorage.removeItem('numtrix_completed_levels_map');
+    localStorage.removeItem('numtrix_hints_left');
+    localStorage.removeItem('numtrix_levels_for_hint');
+    localStorage.removeItem('numtrix_profile');
+    localStorage.removeItem('numtrix_daily_completed');
+    startLevel(1);
+    setCurrentScreen('home');
+  }, [startLevel]);
+
+  // Start Daily Challenge
+  const startDailyChallenge = useCallback(
+    () => {
+      setCurrentLevelNumber(null);
+      setIsDailyChallenge(true);
+      const challenge = dailyChallengeInfo;
+      const initialLives = challenge.type === 'noMistakes' ? 1 : 3;
+      startNewGame(challenge.size, challenge.targetSum, 'medium', 'classic');
+      setLives(initialLives);
+      setMaxLives(initialLives);
+    },
+    [dailyChallengeInfo, startNewGame]
+  );
+
+  // Upper Box Cell Selection
   const selectCell = (row: number, col: number) => {
     sound.playClick();
     setSelectedCell({ row, col });
     setConflictWarning(null);
   };
 
-  // Enter Number from Keypad (Lower number set tap)
-  // Strictly checks that numbers do not repeat ANYWHERE in the entire matrix!
+  // Enter Number from Keypad Dock
   const enterNumber = (num: number) => {
-    if (!selectedCell || isPaused) return;
+    if (!selectedCell || isPaused || isGameOver) return;
     const { row, col } = selectedCell;
     const cell = puzzle.grid[row][col];
-    if (cell.isGiven) return;
+    if (cell.isGiven) return; // Clue cannot be modified
+
+    // Increment move count
+    setMovesCount((prev) => prev + 1);
 
     // Pencil Notes Mode
     if (isPencilMode) {
@@ -676,7 +953,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Check for duplicate number ANYWHERE in the entire matrix
+    // Check for duplicate number in the matrix
     let duplicateLoc: { row: number; col: number } | null = null;
     for (let r = 0; r < puzzle.size; r++) {
       for (let c = 0; c < puzzle.size; c++) {
@@ -691,13 +968,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (duplicateLoc) {
       sound.playWrong();
       setConflictWarning(
-        `⚠️ Number ${num} is already used in Row ${duplicateLoc.row + 1}, Col ${duplicateLoc.col + 1}! Numbers cannot repeat in the matrix.`
+        `⚠️ Number ${num} is already placed in Row ${duplicateLoc.row + 1}, Col ${duplicateLoc.col + 1}!`
       );
     } else {
       setConflictWarning(null);
     }
 
-    // Direct Placement
+    // Record History
     setHistory((prev) => [
       ...prev,
       { row, col, prevValue: cell.value, prevNotes: [...(cell.notes || [])] },
@@ -716,17 +993,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sound.playWrong();
       setStreak(0);
       setWrongCount((prev) => prev + 1);
+
       if (selectedMode !== 'practice') {
-        setLives((prev) => {
-          const nextLives = prev - 1;
-          if (nextLives <= 0) {
-            setTimeout(() => {
-              stopTimer();
-              setCurrentScreen('result');
-            }, 600);
-          }
-          return nextLives;
-        });
+        const nextLives = lives - 1;
+        setLives(nextLives);
+
+        // When lives reach 0: OUT OF LIVES / DEFEAT!
+        // Do NOT pass level! Show Game Over Defeat screen!
+        if (nextLives <= 0) {
+          stopTimer();
+          setIsGameOver(true);
+          setGameOverReason('lives');
+          return;
+        }
       }
     }
 
@@ -742,7 +1021,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Erase Cell
   const eraseCell = () => {
-    if (!selectedCell || isPaused) return;
+    if (!selectedCell || isPaused || isGameOver) return;
     const { row, col } = selectedCell;
     const cell = puzzle.grid[row][col];
     if (cell.isGiven) return;
@@ -766,7 +1045,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Undo Move
   const undoMove = () => {
-    if (history.length === 0 || isPaused) return;
+    if (history.length === 0 || isPaused || isGameOver) return;
     sound.playClick();
     setConflictWarning(null);
     const last = history[history.length - 1];
@@ -783,17 +1062,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSelectedCell({ row: last.row, col: last.col });
   };
 
-  // Use Hint
+  // Use Hint (Strictly limited to hintsLeft, persists to cloud and localStorage)
   const useHint = () => {
-    if (hintsLeft <= 0 || !selectedCell || isPaused) return;
+    if (hintsLeft <= 0 || !selectedCell || isPaused || isGameOver) return;
     const { row, col } = selectedCell;
     const cell = puzzle.grid[row][col];
     if (cell.isGiven || cell.value === cell.solutionValue) return;
 
     sound.playHint();
     setConflictWarning(null);
-    setHintsLeft((prev) => prev - 1);
+    const nextHints = Math.max(0, hintsLeft - 1);
+    setHintsLeft(nextHints);
+    localStorage.setItem('numtrix_hints_left', String(nextHints));
+
+    if (user) {
+      saveUserProfile({
+        ...userProfile,
+        hintsLeft: nextHints,
+        updatedAt: new Date().toISOString(),
+      }).catch((e) => console.warn('Cloud sync hint error:', e));
+    }
+
     setScore((prev) => Math.max(0, prev - 50));
+    setMovesCount((prev) => prev + 1);
 
     setPuzzle((prev) => {
       const nextGrid = prev.grid.map((r) => r.map((c) => ({ ...c })));
@@ -829,6 +1120,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     stopTimer();
     sound.playClick();
     setConflictWarning(null);
+    setIsGameOver(false);
+    setGameOverReason(null);
     setCurrentScreen('home');
   };
 
@@ -858,11 +1151,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canUndo: history.length > 0,
         useHint,
         hintsLeft,
+        levelsCompletedTowardsHint,
+        earnedHintToast,
+        dismissHintToast: () => setEarnedHintToast(false),
         duplicateCells,
         rowHasDuplicates,
         colHasDuplicates,
         conflictWarning,
-        clearConflictWarning,
+        clearConflictWarning: () => setConflictWarning(null),
         rowSums,
         colSums,
         diag1Sum,
@@ -875,20 +1171,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lives,
         maxLives,
         streak,
+        movesCount,
+        parMoves,
         timeElapsed,
         isPaused,
         togglePause,
+        isGameOver,
+        gameOverReason,
         startNewGame,
         restartGame,
+        restartLevel,
+        reviveGame,
         quitGame,
         lastResult,
+        totalCampaignLevels: TOTAL_CAMPAIGN_LEVELS,
+        highestUnlockedLevel,
+        completedLevelsMap,
         levelsProgress,
         currentLevelNumber,
         startLevel,
+        getLevelData,
         resetAllProgress,
         isDailyChallenge,
         startDailyChallenge,
         completedDailyDates,
+        dailyChallengeInfo,
+        playerLevelInfo,
+        currentLevelDifficulty,
+        currentLevelBaseScore,
+        currentLevelBaseXP,
+        calculateLevelScore,
+        calculateLevelXP,
+        calculateDifficulty,
+        calculateParMoves,
+        calculateStars,
+        getPlayerLevelInfo,
         user,
         userProfile,
         isAuthModalOpen,
@@ -896,6 +1213,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleLoginWithGoogle,
         handleLogout,
         authLoading,
+        cloudSyncStatus,
         soundEnabled,
         setSoundEnabled,
         hapticsEnabled,

@@ -27,14 +27,21 @@ service cloud.firestore {
              data.displayName is string && data.displayName.size() <= 100 &&
              (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
              (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500)) &&
-             (!('level' in data) || (data.level is number && data.level >= 1 && data.level <= 1000)) &&
+             (!('level' in data) || (data.level is number && data.level >= 1 && data.level <= 2000)) &&
              (!('xp' in data) || (data.xp is number && data.xp >= 0)) &&
              (!('gamesPlayed' in data) || (data.gamesPlayed is number && data.gamesPlayed >= 0)) &&
              (!('bestScore' in data) || (data.bestScore is number && data.bestScore >= 0)) &&
              (!('bestStreak' in data) || (data.bestStreak is number && data.bestStreak >= 0)) &&
              (!('totalCorrect' in data) || (data.totalCorrect is number && data.totalCorrect >= 0)) &&
              (!('totalWrong' in data) || (data.totalWrong is number && data.totalWrong >= 0)) &&
-             (!('avgReactionTime' in data) || (data.avgReactionTime is number && data.avgReactionTime >= 0));
+             (!('avgReactionTime' in data) || (data.avgReactionTime is number && data.avgReactionTime >= 0)) &&
+             (!('highestUnlockedLevel' in data) || (data.highestUnlockedLevel is number && data.highestUnlockedLevel >= 1 && data.highestUnlockedLevel <= 2000)) &&
+             (!('hintsLeft' in data) || (data.hintsLeft is number && data.hintsLeft >= 0 && data.hintsLeft <= 1000)) &&
+             (!('levelsCompletedTowardsHint' in data) || (data.levelsCompletedTowardsHint is number && data.levelsCompletedTowardsHint >= 0 && data.levelsCompletedTowardsHint <= 10)) &&
+             (!('completedLevelsData' in data) || (data.completedLevelsData is string && data.completedLevelsData.size() <= 50000)) &&
+             (!('completedDailyDates' in data) || (data.completedDailyDates is string && data.completedDailyDates.size() <= 10000)) &&
+             (!('dailyStreak' in data) || (data.dailyStreak is number && data.dailyStreak >= 0)) &&
+             (!('lastDailyDate' in data) || (data.lastDailyDate is string && data.lastDailyDate.size() <= 30));
     }
 
     function isValidGameScore(data) {

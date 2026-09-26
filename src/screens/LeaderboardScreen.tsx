@@ -35,7 +35,6 @@ export const LeaderboardScreen: React.FC = () => {
           if (data && data.length > 0) {
             setScores(data);
           } else {
-            // Seed sample high scores if newly provisioned database
             setScores([
               {
                 scoreId: 'seed_1',
@@ -43,7 +42,7 @@ export const LeaderboardScreen: React.FC = () => {
                 displayName: 'CosmoEuler',
                 mode: 'classic',
                 matrixSize: 5,
-                targetSum: 25,
+                targetSum: 65,
                 score: 5420,
                 accuracy: 98.4,
                 timeSeconds: 36.2,
@@ -56,7 +55,7 @@ export const LeaderboardScreen: React.FC = () => {
                 displayName: 'MatrixMaster',
                 mode: 'classic',
                 matrixSize: 5,
-                targetSum: 25,
+                targetSum: 65,
                 score: 4850,
                 accuracy: 96.0,
                 timeSeconds: 42.1,
@@ -67,9 +66,9 @@ export const LeaderboardScreen: React.FC = () => {
                 scoreId: 'seed_3',
                 userId: 'p3',
                 displayName: 'Hypatia99',
-                mode: 'timed',
+                mode: 'classic',
                 matrixSize: 4,
-                targetSum: 25,
+                targetSum: 34,
                 score: 4210,
                 accuracy: 94.2,
                 timeSeconds: 38.5,
@@ -81,11 +80,11 @@ export const LeaderboardScreen: React.FC = () => {
                 userId: 'p4',
                 displayName: 'GaussHunter',
                 mode: 'classic',
-                matrixSize: 6,
-                targetSum: 25,
+                matrixSize: 3,
+                targetSum: 15,
                 score: 3950,
                 accuracy: 91.8,
-                timeSeconds: 52.0,
+                timeSeconds: 22.0,
                 maxStreak: 16,
                 createdAt: new Date().toISOString(),
               },
@@ -105,7 +104,7 @@ export const LeaderboardScreen: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col w-full pb-8">
+    <div className="flex-1 flex flex-col w-full pb-8 select-none">
       <AppHeader subtitle="STATS" showBack onBack={() => setCurrentScreen('home')} />
 
       <div className="px-5 pt-2 space-y-4">
@@ -118,8 +117,8 @@ export const LeaderboardScreen: React.FC = () => {
             }}
             className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
               tab === 'leaderboard'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-sky-400 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Global Leaderboard
@@ -131,8 +130,8 @@ export const LeaderboardScreen: React.FC = () => {
             }}
             className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
               tab === 'stats'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-sky-400 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Career Mastery
@@ -142,14 +141,14 @@ export const LeaderboardScreen: React.FC = () => {
         {tab === 'leaderboard' ? (
           <div className="space-y-3">
             {/* Top 3 Podium Card */}
-            <GlassCard className="p-4 bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl shadow-blue-500/20">
+            <GlassCard className="p-4 bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 text-white shadow-xl shadow-emerald-600/20">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5 text-xs font-black">
                   <Crown className="w-4 h-4 text-amber-300 fill-amber-300" />
-                  <span>Top Harmonic Hunters</span>
+                  <span>Top Numtrix Masters</span>
                 </div>
-                <span className="text-[10px] font-bold text-blue-200 uppercase">
-                  Firebase Live Sync
+                <span className="text-[10px] font-bold text-emerald-100 uppercase">
+                  Live Global Sync
                 </span>
               </div>
 
@@ -160,7 +159,7 @@ export const LeaderboardScreen: React.FC = () => {
                   <div className="w-10 h-10 rounded-full border-2 border-slate-300 bg-slate-800 text-slate-200 flex items-center justify-center font-black text-xs shadow-md">
                     2
                   </div>
-                  <span className="text-[11px] font-extrabold mt-1 text-blue-100 max-w-[70px] truncate text-center">
+                  <span className="text-[11px] font-extrabold mt-1 text-emerald-100 max-w-[70px] truncate text-center">
                     {scores[1]?.displayName || 'Silver'}
                   </span>
                   <span className="text-[10px] font-black text-amber-300">
@@ -191,7 +190,7 @@ export const LeaderboardScreen: React.FC = () => {
                   <div className="w-10 h-10 rounded-full border-2 border-amber-700 bg-amber-900 text-amber-200 flex items-center justify-center font-black text-xs shadow-md">
                     3
                   </div>
-                  <span className="text-[11px] font-extrabold mt-1 text-blue-100 max-w-[70px] truncate text-center">
+                  <span className="text-[11px] font-extrabold mt-1 text-emerald-100 max-w-[70px] truncate text-center">
                     {scores[2]?.displayName || 'Bronze'}
                   </span>
                   <span className="text-[10px] font-black text-amber-300">
@@ -210,7 +209,7 @@ export const LeaderboardScreen: React.FC = () => {
                   <GlassCard
                     key={sc.scoreId || idx}
                     className={`p-3 flex items-center justify-between ${
-                      isCurrentUser ? 'border-2 border-blue-500 bg-blue-50/50 dark:bg-blue-950/40' : ''
+                      isCurrentUser ? 'border-2 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40' : ''
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -219,121 +218,83 @@ export const LeaderboardScreen: React.FC = () => {
                           idx === 0
                             ? 'bg-amber-400 text-slate-950 font-black'
                             : idx === 1
-                            ? 'bg-slate-300 text-slate-800'
+                            ? 'bg-slate-300 text-slate-900 font-black'
                             : idx === 2
-                            ? 'bg-amber-700 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                            ? 'bg-amber-700 text-white font-black'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold'
                         }`}
                       >
-                        #{idx + 1}
+                        {idx + 1}
                       </div>
 
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black text-slate-800 dark:text-white">
+                          <span className="text-xs font-black text-slate-950 dark:text-white">
                             {sc.displayName}
                           </span>
                           {isCurrentUser && (
-                            <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[9px] font-black">
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[8px] font-black">
                               YOU
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-slate-400 font-bold">
-                          {sc.matrixSize}×{sc.matrixSize} {sc.mode.toUpperCase()} • {sc.accuracy}% ACC
+                        <span className="text-[10px] text-slate-500 font-bold">
+                          {sc.matrixSize}×{sc.matrixSize} • {sc.accuracy}% Acc • {sc.timeSeconds}s
                         </span>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="text-sm font-black text-blue-600 dark:text-sky-400">
+                      <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 block leading-tight">
                         {sc.score.toLocaleString()}
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-400">
-                        {sc.timeSeconds}s
                       </span>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">PTS</span>
                     </div>
                   </GlassCard>
                 );
               })}
             </div>
-
-            {/* Cloud Sync Callout if not signed in */}
-            {!user && (
-              <GlassCard className="p-4 bg-sky-50/70 dark:bg-slate-800/60 border-sky-200 dark:border-slate-700 flex items-center justify-between">
-                <div>
-                  <h5 className="text-xs font-black text-slate-800 dark:text-white">
-                    Appear on Global Leaderboards
-                  </h5>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                    Link your Google account to record your top scores permanently.
-                  </p>
-                </div>
-                <GlassButton
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setIsAuthModalOpen(true)}
-                >
-                  Sign In
-                </GlassButton>
-              </GlassCard>
-            )}
           </div>
         ) : (
           /* Career Stats Tab */
-          <div className="space-y-4">
-            <GlassCard className="p-4 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-md">
-                    {userProfile.displayName[0]}
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-800 dark:text-white">
-                      {userProfile.displayName}
-                    </h4>
-                    <p className="text-xs text-blue-600 dark:text-sky-400 font-bold">
-                      Level {userProfile.level} Hunter • {userProfile.xp.toLocaleString()} XP
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-xs font-bold text-slate-400">Personal Best</div>
-                  <div className="text-base font-black text-slate-800 dark:text-white">
-                    {userProfile.bestScore.toLocaleString()}
-                  </div>
-                </div>
+          <div className="space-y-3">
+            <GlassCard className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-950 dark:text-white uppercase tracking-wider">
+                  Player Career Overview
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-black">
+                  LVL {userProfile.level}
+                </span>
               </div>
 
-              {/* 4 Stats Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Games Finished</div>
-                  <div className="text-base font-black text-slate-800 dark:text-white mt-0.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="p-3 rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-[10px] font-black text-slate-500 uppercase block">Total Puzzles</span>
+                  <span className="text-xl font-black text-slate-950 dark:text-white">
                     {userProfile.gamesPlayed}
-                  </div>
+                  </span>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Total Correct</div>
-                  <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    {userProfile.totalCorrect}
-                  </div>
+                <div className="p-3 rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-[10px] font-black text-slate-500 uppercase block">Best Score</span>
+                  <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">
+                    {userProfile.bestScore.toLocaleString()}
+                  </span>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Avg Reaction Time</div>
-                  <div className="text-base font-black text-sky-600 dark:text-sky-400 mt-0.5">
-                    {userProfile.avgReactionTime}s
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Best Combo Streak</div>
-                  <div className="text-base font-black text-orange-600 dark:text-amber-400 mt-0.5">
+                <div className="p-3 rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-[10px] font-black text-slate-500 uppercase block">Best Streak</span>
+                  <span className="text-xl font-black text-amber-500">
                     {userProfile.bestStreak}×
-                  </div>
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                  <span className="text-[10px] font-black text-slate-500 uppercase block">Total XP</span>
+                  <span className="text-xl font-black text-slate-950 dark:text-white">
+                    {userProfile.xp.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </GlassCard>

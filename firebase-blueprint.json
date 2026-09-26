@@ -56,6 +56,37 @@
           "type": "number",
           "description": "Average reaction time in seconds per target"
         },
+        "highestUnlockedLevel": {
+          "type": "number",
+          "description": "Highest campaign level unlocked (1 to 1500+)"
+        },
+        "hintsLeft": {
+          "type": "number",
+          "description": "Number of hints remaining for player"
+        },
+        "levelsCompletedTowardsHint": {
+          "type": "number",
+          "description": "Progress towards earning the next hint (0 to 10)"
+        },
+        "completedLevelsData": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "JSON serialized map of completed levels and stars"
+        },
+        "completedDailyDates": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "JSON serialized list of dates completed for daily challenges"
+        },
+        "dailyStreak": {
+          "type": "number",
+          "description": "Consecutive days completed"
+        },
+        "lastDailyDate": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Last date daily challenge was completed"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
